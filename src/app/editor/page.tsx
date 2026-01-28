@@ -147,10 +147,19 @@ export default function EditorPage() {
   const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
   const [selectedClip, setSelectedClip] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const playerRef = useRef<PlayerRef>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const ratioConfig = ASPECT_RATIOS[aspectRatio];
 
@@ -271,21 +280,21 @@ export default function EditorPage() {
   ];
 
   return (
-    <div className="h-screen bg-black flex flex-col overflow-hidden">
+    <div className="h-screen bg-black flex flex-col overflow-hidden touch-manipulation">
       {/* Top bar */}
-      <header className="h-14 bg-black border-b border-white/10 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-white/60 hover:text-white">
-            ← Back
+      <header className="h-12 md:h-14 bg-black border-b border-white/10 flex items-center justify-between px-3 md:px-4 shrink-0 safe-area-inset-top">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Link href="/" className="text-white/60 hover:text-white text-sm">
+            ←
           </Link>
-          <span className="text-white font-medium">
+          <span className="text-white font-medium text-sm truncate max-w-[120px] md:max-w-none">
             {uploadedFile?.name || 'New Project'}
           </span>
         </div>
         
-        <div className="flex items-center gap-3">
-          {/* Aspect ratio toggle */}
-          <div className="flex bg-white/10 rounded-lg p-1">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Aspect ratio toggle - hidden on mobile, show in panel */}
+          <div className="hidden md:flex bg-white/10 rounded-lg p-1">
             {(['9:16', '16:9', '1:1'] as AspectRatio[]).map((ratio) => (
               <button
                 key={ratio}
@@ -303,7 +312,7 @@ export default function EditorPage() {
           
           <button
             onClick={() => setActivePanel('export')}
-            className="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-semibold hover:bg-pink-600 transition"
+            className="px-3 md:px-4 py-1.5 md:py-2 bg-pink-500 text-white rounded-lg text-xs md:text-sm font-semibold hover:bg-pink-600 transition"
           >
             Export
           </button>
@@ -311,14 +320,18 @@ export default function EditorPage() {
       </header>
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Preview area */}
-        <div className="flex-1 flex items-center justify-center bg-black p-4">
+        <div className="flex-1 flex items-center justify-center bg-black p-2 md:p-4 relative">
           <div 
-            className="relative bg-gray-900 rounded-3xl overflow-hidden shadow-2xl"
+            className="relative bg-gray-900 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl"
             style={{
-              width: aspectRatio === '9:16' ? '300px' : aspectRatio === '1:1' ? '400px' : '500px',
-              height: aspectRatio === '9:16' ? '533px' : aspectRatio === '1:1' ? '400px' : '281px',
+              width: isMobile 
+                ? (aspectRatio === '9:16' ? '200px' : aspectRatio === '1:1' ? '280px' : '320px')
+                : (aspectRatio === '9:16' ? '300px' : aspectRatio === '1:1' ? '400px' : '500px'),
+              height: isMobile
+                ? (aspectRatio === '9:16' ? '356px' : aspectRatio === '1:1' ? '280px' : '180px')
+                : (aspectRatio === '9:16' ? '533px' : aspectRatio === '1:1' ? '400px' : '281px'),
             }}
           >
             {/* Phone frame for vertical videos */}
@@ -364,8 +377,12 @@ export default function EditorPage() {
             )}
           </div>
 
-          {/* Right side quick actions */}
-          <div className="ml-4 flex flex-col gap-2">
+          {/* Quick actions - Right side on desktop, floating on mobile */}
+          <div className={`${
+            isMobile 
+              ? 'absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1' 
+              : 'ml-4 flex flex-col gap-2'
+          }`}>
             {quickActions.map((action) => (
               <button
                 key={action.id}
@@ -376,27 +393,39 @@ export default function EditorPage() {
                     setActivePanel(activePanel === action.id ? null : action.id as typeof activePanel);
                   }
                 }}
-                className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center transition ${
+                className={`${
+                  isMobile ? 'w-10 h-10' : 'w-14 h-14'
+                } rounded-xl flex flex-col items-center justify-center transition ${
                   activePanel === action.id
                     ? 'bg-white text-black'
-                    : 'bg-white/10 text-white hover:bg-white/20'
+                    : 'bg-black/60 backdrop-blur text-white hover:bg-white/20'
                 }`}
               >
-                <span className="text-lg">{action.icon}</span>
-                <span className="text-[10px] mt-0.5">{action.label}</span>
+                <span className={isMobile ? 'text-base' : 'text-lg'}>{action.icon}</span>
+                {!isMobile && <span className="text-[10px] mt-0.5">{action.label}</span>}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Right panel */}
+        {/* Right panel (desktop) / Bottom sheet (mobile) */}
         {activePanel && (
-          <div className="w-80 bg-gray-900 border-l border-white/10 overflow-y-auto">
-            <div className="p-4">
+          <div className={`${
+            isMobile 
+              ? 'fixed inset-x-0 bottom-0 max-h-[70vh] rounded-t-3xl z-50' 
+              : 'w-80 border-l border-white/10'
+          } bg-gray-900 overflow-y-auto`}>
+            {/* Drag handle for mobile */}
+            {isMobile && (
+              <div className="flex justify-center py-2">
+                <div className="w-10 h-1 bg-white/30 rounded-full" />
+              </div>
+            )}
+            <div className="p-4 relative">
               {/* Close button */}
               <button
                 onClick={() => setActivePanel(null)}
-                className="absolute top-4 right-4 text-white/60 hover:text-white"
+                className="absolute top-2 right-4 w-8 h-8 flex items-center justify-center text-white/60 hover:text-white bg-white/10 rounded-full"
               >
                 ✕
               </button>
@@ -487,22 +516,22 @@ export default function EditorPage() {
       </div>
 
       {/* Bottom timeline */}
-      <div className="h-44 bg-gray-900 border-t border-white/10 shrink-0">
+      <div className={`${isMobile ? 'h-32' : 'h-44'} bg-gray-900 border-t border-white/10 shrink-0 safe-area-inset-bottom`}>
         {/* Playback controls */}
-        <div className="h-12 flex items-center justify-center gap-4 border-b border-white/10">
-          <button className="text-white/60 hover:text-white">
+        <div className="h-10 md:h-12 flex items-center justify-center gap-3 md:gap-4 border-b border-white/10">
+          <button className="text-white/60 hover:text-white text-sm md:text-base">
             ⏮️
           </button>
           <button 
             onClick={() => setIsPlaying(!isPlaying)}
-            className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black"
+            className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center text-black"
           >
             {isPlaying ? '⏸️' : '▶️'}
           </button>
-          <button className="text-white/60 hover:text-white">
+          <button className="text-white/60 hover:text-white text-sm md:text-base">
             ⏭️
           </button>
-          <span className="text-white/60 text-sm font-mono">
+          <span className="text-white/60 text-xs md:text-sm font-mono">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
         </div>
@@ -510,8 +539,16 @@ export default function EditorPage() {
         {/* Timeline scrubber */}
         <div 
           ref={timelineRef}
-          className="h-8 mx-4 mt-2 relative cursor-pointer"
+          className="h-6 md:h-8 mx-2 md:mx-4 mt-1 md:mt-2 relative cursor-pointer touch-none"
           onClick={handleTimelineClick}
+          onTouchMove={(e) => {
+            if (!timelineRef.current) return;
+            const touch = e.touches[0];
+            const rect = timelineRef.current.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const percent = Math.max(0, Math.min(1, x / rect.width));
+            setCurrentTime(percent * duration);
+          }}
         >
           {/* Time markers */}
           <div className="absolute inset-0 flex justify-between text-white/30 text-xs">
@@ -536,9 +573,9 @@ export default function EditorPage() {
         </div>
 
         {/* Timeline tracks */}
-        <div className="mx-4 mt-2 space-y-1 overflow-x-auto">
+        <div className="mx-2 md:mx-4 mt-1 md:mt-2 space-y-1 overflow-x-auto">
           {/* Video track */}
-          <div className="h-10 bg-white/5 rounded relative">
+          <div className="h-8 md:h-10 bg-white/5 rounded relative">
             {timelineClips
               .filter(c => c.track === 0)
               .map((clip) => (
@@ -562,7 +599,7 @@ export default function EditorPage() {
           </div>
           
           {/* Text/overlay track */}
-          <div className="h-8 bg-white/5 rounded relative">
+          <div className={`${isMobile ? 'h-6' : 'h-8'} bg-white/5 rounded relative`}>
             {timelineClips
               .filter(c => c.track === 1)
               .map((clip) => (
@@ -586,7 +623,7 @@ export default function EditorPage() {
           </div>
 
           {/* Audio track */}
-          <div className="h-8 bg-white/5 rounded relative">
+          <div className={`${isMobile ? 'hidden' : 'h-8'} bg-white/5 rounded relative`}>
             {timelineClips
               .filter(c => c.track === 2)
               .map((clip) => (
