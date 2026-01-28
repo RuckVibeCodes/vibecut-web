@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Player } from '@remotion/player';
 import { DemoVideo } from '@/components/DemoVideo';
+import { AIPromptEditor } from '@/components/AIPromptEditor';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'create' | 'templates'>('home');
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
@@ -37,6 +40,12 @@ export default function Home() {
             >
               Templates
             </button>
+            <Link 
+              href="/settings"
+              className="text-sm font-medium text-white/60 hover:text-white transition"
+            >
+              ⚙️ Settings
+            </Link>
           </nav>
         </div>
       </header>
@@ -122,29 +131,96 @@ export default function Home() {
 
       {/* Create Tab */}
       {activeTab === 'create' && (
-        <main className="max-w-4xl mx-auto px-6 py-20">
-          <h2 className="text-3xl font-bold text-white mb-8">Create New Video</h2>
+        <main className="max-w-6xl mx-auto px-6 py-12">
+          <h2 className="text-3xl font-bold text-white mb-2">Create New Video</h2>
+          <p className="text-white/60 mb-8">Use AI to generate video compositions or upload your footage</p>
           
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-8 mb-8">
-            <h3 className="text-xl font-semibold text-white mb-4">1. Upload Your Recording</h3>
-            <div className="border-2 border-dashed border-white/30 rounded-xl p-12 text-center">
-              <div className="text-4xl mb-4">📹</div>
-              <p className="text-white/70 mb-4">Drag & drop your video file here</p>
-              <button className="px-6 py-3 bg-white/20 text-white rounded-lg hover:bg-white/30 transition">
-                Browse Files
-              </button>
-              <p className="text-sm text-white/50 mt-4">Supports MP4, MOV, M4A, MP3</p>
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* AI Prompt Editor */}
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="text-xl">✨</span> AI Video Editor
+              </h3>
+              <AIPromptEditor onGenerateCode={setGeneratedCode} />
             </div>
-          </div>
 
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-8 mb-8 opacity-50">
-            <h3 className="text-xl font-semibold text-white mb-4">2. Review Captions</h3>
-            <p className="text-white/60">Upload a video to generate captions...</p>
-          </div>
+            {/* Upload + Preview */}
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <span className="text-xl">📹</span> Upload Footage
+                </h3>
+                <div className="bg-white/10 backdrop-blur rounded-2xl p-6">
+                  <div className="border-2 border-dashed border-white/30 rounded-xl p-8 text-center hover:border-white/50 transition cursor-pointer">
+                    <div className="text-3xl mb-3">📁</div>
+                    <p className="text-white/70 mb-2">Drop files or click to browse</p>
+                    <p className="text-sm text-white/40">MP4, MOV, M4A, MP3</p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-8 opacity-50">
-            <h3 className="text-xl font-semibold text-white mb-4">3. Configure & Render</h3>
-            <p className="text-white/60">Captions required to continue...</p>
+              {/* Generated Code Preview */}
+              {generatedCode && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <span className="text-xl">💻</span> Generated Code
+                  </h3>
+                  <div className="bg-black/50 backdrop-blur rounded-2xl p-4 overflow-auto max-h-[400px]">
+                    <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{generatedCode}</pre>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => navigator.clipboard.writeText(generatedCode)}
+                      className="flex-1 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition text-sm"
+                    >
+                      📋 Copy Code
+                    </button>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([generatedCode], { type: 'text/typescript' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'Composition.tsx';
+                        a.click();
+                      }}
+                      className="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition text-sm"
+                    >
+                      ⬇️ Download
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Actions */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <span className="text-xl">⚡</span> Quick Actions
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="p-4 bg-white/10 rounded-xl text-left hover:bg-white/15 transition">
+                    <div className="text-2xl mb-2">🎙️</div>
+                    <div className="text-white font-medium text-sm">Transcribe</div>
+                    <div className="text-white/50 text-xs">Generate captions</div>
+                  </button>
+                  <button className="p-4 bg-white/10 rounded-xl text-left hover:bg-white/15 transition">
+                    <div className="text-2xl mb-2">🎨</div>
+                    <div className="text-white font-medium text-sm">Generate B-Roll</div>
+                    <div className="text-white/50 text-xs">AI video clips</div>
+                  </button>
+                  <button className="p-4 bg-white/10 rounded-xl text-left hover:bg-white/15 transition">
+                    <div className="text-2xl mb-2">🔊</div>
+                    <div className="text-white font-medium text-sm">Add Voiceover</div>
+                    <div className="text-white/50 text-xs">ElevenLabs TTS</div>
+                  </button>
+                  <button className="p-4 bg-white/10 rounded-xl text-left hover:bg-white/15 transition">
+                    <div className="text-2xl mb-2">🎵</div>
+                    <div className="text-white font-medium text-sm">Add Music</div>
+                    <div className="text-white/50 text-xs">Background audio</div>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </main>
       )}
