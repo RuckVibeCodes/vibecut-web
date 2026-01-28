@@ -19,7 +19,7 @@ export function getSupabaseClient() {
 export interface Asset {
   id: string;
   name: string;
-  type: 'video' | 'audio' | 'image';
+  type: 'video' | 'audio' | 'image' | 'gif';
   file_path: string;
   file_size: number;
   mime_type: string;
@@ -39,7 +39,8 @@ export interface AssetUploadResult {
 }
 
 // Helper to determine asset type from mime
-export function getAssetType(mimeType: string): 'video' | 'audio' | 'image' {
+export function getAssetType(mimeType: string): 'video' | 'audio' | 'image' | 'gif' {
+  if (mimeType === 'image/gif') return 'gif';
   if (mimeType.startsWith('video/')) return 'video';
   if (mimeType.startsWith('audio/')) return 'audio';
   if (mimeType.startsWith('image/')) return 'image';

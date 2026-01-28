@@ -15,7 +15,7 @@ interface LocalAsset extends Asset {
 
 export function AssetManager({ onSelectAsset }: Props) {
   const [assets, setAssets] = useState<LocalAsset[]>([]);
-  const [filter, setFilter] = useState<'all' | 'video' | 'audio' | 'image'>('all');
+  const [filter, setFilter] = useState<'all' | 'video' | 'audio' | 'image' | 'gif'>('all');
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -148,8 +148,8 @@ export function AssetManager({ onSelectAsset }: Props) {
         />
         
         {/* Filter tabs */}
-        <div className="flex gap-2">
-          {(['all', 'video', 'audio', 'image'] as const).map((type) => (
+        <div className="flex gap-2 flex-wrap">
+          {(['all', 'video', 'audio', 'image', 'gif'] as const).map((type) => (
             <button
               key={type}
               onClick={() => setFilter(type)}
@@ -161,7 +161,8 @@ export function AssetManager({ onSelectAsset }: Props) {
             >
               {type === 'all' ? '📁 All' : 
                type === 'video' ? '🎬 Video' : 
-               type === 'audio' ? '🎵 Audio' : '🖼️ Images'}
+               type === 'audio' ? '🎵 Audio' : 
+               type === 'gif' ? '🎭 GIFs' : '🖼️ Images'}
             </button>
           ))}
         </div>
@@ -178,7 +179,7 @@ export function AssetManager({ onSelectAsset }: Props) {
           id="asset-upload"
           type="file"
           multiple
-          accept="video/*,audio/*,image/*"
+          accept="video/*,audio/*,image/*,.gif"
           onChange={(e) => e.target.files && handleUpload(e.target.files)}
           className="hidden"
         />
@@ -212,8 +213,8 @@ export function AssetManager({ onSelectAsset }: Props) {
                 }}
               >
                 {/* Thumbnail */}
-                <div className="aspect-video bg-black/50 flex items-center justify-center">
-                  {asset.type === 'image' ? (
+                <div className="aspect-video bg-black/50 flex items-center justify-center relative">
+                  {asset.type === 'image' || asset.type === 'gif' ? (
                     <img 
                       src={asset.dataUrl} 
                       alt={asset.name}
@@ -226,6 +227,13 @@ export function AssetManager({ onSelectAsset }: Props) {
                     />
                   ) : (
                     <span className="text-3xl">🎵</span>
+                  )}
+                  
+                  {/* GIF badge */}
+                  {asset.type === 'gif' && (
+                    <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-purple-500/80 rounded text-white text-xs font-bold">
+                      GIF
+                    </span>
                   )}
                   
                   {/* Duration badge */}

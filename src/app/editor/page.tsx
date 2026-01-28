@@ -7,6 +7,7 @@ import { CaptionStylePicker } from '@/components/CaptionStylePicker';
 import { ExportPresets } from '@/components/ExportPresets';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
 import { AssetManager } from '@/components/AssetManager';
+import { SimpleEditor } from '@/components/SimpleEditor';
 import { 
   AspectRatio, 
   CaptionStyleId, 
@@ -275,7 +276,14 @@ export default function EditorPage() {
           <div className="w-96 border-l border-white/10 bg-black/30 overflow-y-auto p-6">
             {activeTab === 'edit' && (
               <div className="space-y-6">
-                <div>
+                {/* Simple Editor Controls */}
+                <SimpleEditor 
+                  duration={transcript?.duration || 10}
+                  onEditChange={(edit) => console.log('Edit changed:', edit)}
+                />
+
+                {/* Project Settings */}
+                <div className="pt-4 border-t border-white/10">
                   <h3 className="text-lg font-semibold text-white mb-4">Project Settings</h3>
                   <div className="space-y-4">
                     <div>
