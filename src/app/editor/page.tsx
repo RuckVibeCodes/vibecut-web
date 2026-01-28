@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Player } from '@remotion/player';
+import { Player, PlayerRef } from '@remotion/player';
 import { CaptionStylePicker } from '@/components/CaptionStylePicker';
 import { ExportPresets } from '@/components/ExportPresets';
-import { AIPromptEditor } from '@/components/AIPromptEditor';
 import { AssetManager } from '@/components/AssetManager';
-import { SimpleEditor } from '@/components/SimpleEditor';
 import { 
   AspectRatio, 
   CaptionStyleId, 
@@ -16,18 +14,43 @@ import {
   CAPTION_STYLES 
 } from '@/lib/types';
 
-// Simple composition for preview
+// Text overlay type
+interface TextOverlay {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+  fontWeight: number;
+  startTime: number;
+  endTime: number;
+}
+
+// Timeline clip type
+interface TimelineClip {
+  id: string;
+  type: 'video' | 'audio' | 'text' | 'effect';
+  name: string;
+  startTime: number;
+  duration: number;
+  track: number;
+  color: string;
+  data?: unknown;
+}
+
+// Preview composition
 const PreviewComposition: React.FC<{
   transcript?: Transcript;
   captionStyle: CaptionStyleId;
+  textOverlays: TextOverlay[];
   currentTime: number;
-}> = ({ transcript, captionStyle, currentTime }) => {
+  videoUrl?: string;
+}> = ({ transcript, captionStyle, textOverlays, currentTime, videoUrl }) => {
   const style = CAPTION_STYLES.find(s => s.id === captionStyle) || CAPTION_STYLES[0];
   
-  // Find current words to display
-  const getCurrentWords = () => {
+  const getCurrentCaption = () => {
     if (!transcript?.words) return '';
-    
     const wordsPerLine = style.config.wordsPerLine;
     const currentWords: string[] = [];
     
@@ -37,41 +60,71 @@ const PreviewComposition: React.FC<{
         if (currentWords.length >= wordsPerLine) break;
       }
     }
-    
     return currentWords.join(' ');
   };
 
+  const visibleOverlays = textOverlays.filter(
+    o => currentTime >= o.startTime && currentTime <= o.endTime
+  );
+
   return (
-    <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black flex items-center justify-center relative">
-      {/* Placeholder content */}
-      <div className="text-white/30 text-lg">
-        {transcript ? 'Video Preview' : 'Upload a video to preview'}
-      </div>
+    <div className="w-full h-full bg-black relative overflow-hidden">
+      {/* Video background */}
+      {videoUrl ? (
+        <video
+          src={videoUrl}
+          className="w-full h-full object-cover"
+          muted
+        />
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+          <span className="text-white/20 text-lg">Preview</span>
+        </div>
+      )}
       
-      {/* Captions overlay */}
+      {/* Text overlays */}
+      {visibleOverlays.map((overlay) => (
+        <div
+          key={overlay.id}
+          className="absolute pointer-events-none"
+          style={{
+            left: `${overlay.x}%`,
+            top: `${overlay.y}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <p
+            style={{
+              fontSize: overlay.fontSize,
+              color: overlay.color,
+              fontWeight: overlay.fontWeight,
+              textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+            }}
+          >
+            {overlay.text}
+          </p>
+        </div>
+      ))}
+
+      {/* Captions */}
       {transcript && (
         <div 
-          className={`absolute left-0 right-0 px-8 ${
+          className={`absolute left-0 right-0 px-4 ${
             style.config.position === 'top' ? 'top-8' :
             style.config.position === 'center' ? 'top-1/2 -translate-y-1/2' :
-            'bottom-8'
+            'bottom-16'
           }`}
         >
           <p
             className="text-center"
             style={{
-              fontSize: style.config.fontSize,
+              fontSize: style.config.fontSize * 0.6,
               fontWeight: style.config.fontWeight,
-              fontFamily: style.config.fontFamily,
               color: style.config.color,
-              textShadow: style.config.shadow ? '2px 2px 4px rgba(0,0,0,0.8)' : undefined,
-              WebkitTextStroke: style.config.outline ? `2px ${style.config.outlineColor}` : undefined,
-              backgroundColor: style.config.backgroundColor,
-              padding: style.config.backgroundColor ? '8px 16px' : undefined,
-              borderRadius: style.config.backgroundColor ? '8px' : undefined,
+              textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
             }}
           >
-            {getCurrentWords()}
+            {getCurrentCaption()}
           </p>
         </div>
       )}
@@ -80,278 +133,487 @@ const PreviewComposition: React.FC<{
 };
 
 export default function EditorPage() {
-  const [activeTab, setActiveTab] = useState<'edit' | 'assets' | 'captions' | 'export' | 'ai'>('edit');
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+  // State
+  const [activePanel, setActivePanel] = useState<'clips' | 'text' | 'stickers' | 'effects' | 'audio' | 'captions' | 'export' | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16'); // TikTok default
   const [captionStyle, setCaptionStyle] = useState<CaptionStyleId>('tiktok-bounce');
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(30);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
+  const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
+  const [selectedClip, setSelectedClip] = useState<string | null>(null);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const playerRef = useRef<PlayerRef>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const ratioConfig = ASPECT_RATIOS[aspectRatio];
 
+  // Handle file upload
   const handleFileUpload = useCallback(async (file: File) => {
     setUploadedFile(file);
     
-    // Auto-transcribe on upload
+    // Create video URL for preview
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
+
+    // Get video duration
+    const video = document.createElement('video');
+    video.src = url;
+    video.onloadedmetadata = () => {
+      setDuration(video.duration);
+      
+      // Add to timeline
+      const clip: TimelineClip = {
+        id: `clip-${Date.now()}`,
+        type: 'video',
+        name: file.name,
+        startTime: 0,
+        duration: video.duration,
+        track: 0,
+        color: '#6366f1',
+      };
+      setTimelineClips([clip]);
+    };
+    
+    // Auto-transcribe
     setIsTranscribing(true);
     try {
       const stored = localStorage.getItem('vibecut-api-keys');
-      if (!stored) {
-        throw new Error('Please configure API keys in Settings');
+      if (stored) {
+        const keys = JSON.parse(stored);
+        const apiKey = keys.deepgram || keys.openai;
+        const provider = keys.deepgram ? 'deepgram' : 'openai';
+        
+        if (apiKey) {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('apiKey', apiKey);
+          formData.append('provider', provider);
+
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setTranscript(data.transcript);
+          }
+        }
       }
-      
-      const keys = JSON.parse(stored);
-      const apiKey = keys.deepgram || keys.openai;
-      const provider = keys.deepgram ? 'deepgram' : 'openai';
-      
-      if (!apiKey) {
-        throw new Error('Please add Deepgram or OpenAI API key in Settings');
-      }
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('apiKey', apiKey);
-      formData.append('provider', provider);
-
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Transcription failed');
-      }
-
-      const data = await response.json();
-      setTranscript(data.transcript);
     } catch (error) {
       console.error('Transcription error:', error);
-      alert(error instanceof Error ? error.message : 'Transcription failed');
     } finally {
       setIsTranscribing(false);
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
-      handleFileUpload(file);
-    }
-  }, [handleFileUpload]);
+  // Add text overlay
+  const addTextOverlay = useCallback(() => {
+    const newOverlay: TextOverlay = {
+      id: `text-${Date.now()}`,
+      text: 'Tap to edit',
+      x: 50,
+      y: 30,
+      fontSize: 48,
+      color: '#ffffff',
+      fontWeight: 700,
+      startTime: currentTime,
+      endTime: Math.min(currentTime + 3, duration),
+    };
+    setTextOverlays(prev => [...prev, newOverlay]);
+    
+    // Add to timeline
+    const clip: TimelineClip = {
+      id: newOverlay.id,
+      type: 'text',
+      name: 'Text',
+      startTime: newOverlay.startTime,
+      duration: newOverlay.endTime - newOverlay.startTime,
+      track: 1,
+      color: '#ec4899',
+      data: newOverlay,
+    };
+    setTimelineClips(prev => [...prev, clip]);
+  }, [currentTime, duration]);
+
+  // Timeline scrubbing
+  const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!timelineRef.current) return;
+    const rect = timelineRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = x / rect.width;
+    const newTime = percent * duration;
+    setCurrentTime(Math.max(0, Math.min(newTime, duration)));
+  }, [duration]);
+
+  // Format time
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Quick action buttons (TikTok style)
+  const quickActions = [
+    { id: 'clips', icon: '🎬', label: 'Clips' },
+    { id: 'text', icon: 'Aa', label: 'Text' },
+    { id: 'stickers', icon: '😀', label: 'Stickers' },
+    { id: 'effects', icon: '✨', label: 'Effects' },
+    { id: 'audio', icon: '🎵', label: 'Audio' },
+    { id: 'captions', icon: '💬', label: 'Captions' },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-black">
-      {/* Header */}
-      <header className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-pink-500 rounded-lg flex items-center justify-center text-lg">
-              🎬
-            </div>
-            <span className="text-xl font-bold text-white">VibeCut</span>
+    <div className="h-screen bg-black flex flex-col overflow-hidden">
+      {/* Top bar */}
+      <header className="h-14 bg-black border-b border-white/10 flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-white/60 hover:text-white">
+            ← Back
           </Link>
-          
-          <div className="flex items-center gap-4">
-            <span className="text-white/50 text-sm">
-              {uploadedFile ? uploadedFile.name : 'No video loaded'}
-            </span>
-            <button className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition">
-              Export
-            </button>
+          <span className="text-white font-medium">
+            {uploadedFile?.name || 'New Project'}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {/* Aspect ratio toggle */}
+          <div className="flex bg-white/10 rounded-lg p-1">
+            {(['9:16', '16:9', '1:1'] as AspectRatio[]).map((ratio) => (
+              <button
+                key={ratio}
+                onClick={() => setAspectRatio(ratio)}
+                className={`px-3 py-1 rounded text-xs font-medium transition ${
+                  aspectRatio === ratio
+                    ? 'bg-white text-black'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                {ratio}
+              </button>
+            ))}
           </div>
+          
+          <button
+            onClick={() => setActivePanel('export')}
+            className="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-semibold hover:bg-pink-600 transition"
+          >
+            Export
+          </button>
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-57px)]">
-        {/* Left Sidebar - Tools */}
-        <div className="w-16 bg-black/50 border-r border-white/10 flex flex-col items-center py-4 gap-2">
-          {[
-            { id: 'edit', icon: '✂️', label: 'Edit' },
-            { id: 'assets', icon: '📁', label: 'Assets' },
-            { id: 'captions', icon: '💬', label: 'Captions' },
-            { id: 'export', icon: '📤', label: 'Export' },
-            { id: 'ai', icon: '✨', label: 'AI' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center gap-1 transition ${
-                activeTab === tab.id
-                  ? 'bg-indigo-500 text-white'
-                  : 'text-white/50 hover:bg-white/10 hover:text-white'
-              }`}
-              title={tab.label}
-            >
-              <span className="text-lg">{tab.icon}</span>
-              <span className="text-[10px]">{tab.label}</span>
-            </button>
-          ))}
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Preview area */}
+        <div className="flex-1 flex items-center justify-center bg-black p-4">
+          <div 
+            className="relative bg-gray-900 rounded-3xl overflow-hidden shadow-2xl"
+            style={{
+              width: aspectRatio === '9:16' ? '300px' : aspectRatio === '1:1' ? '400px' : '500px',
+              height: aspectRatio === '9:16' ? '533px' : aspectRatio === '1:1' ? '400px' : '281px',
+            }}
+          >
+            {/* Phone frame for vertical videos */}
+            {aspectRatio === '9:16' && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-1 bg-white/20 rounded-full z-10" />
+            )}
+            
+            {uploadedFile ? (
+              <Player
+                ref={playerRef}
+                component={PreviewComposition}
+                inputProps={{
+                  transcript: transcript || undefined,
+                  captionStyle,
+                  textOverlays,
+                  currentTime,
+                  videoUrl: videoUrl || undefined,
+                }}
+                durationInFrames={Math.max(60, duration * 60)}
+                fps={60}
+                compositionWidth={ratioConfig.width}
+                compositionHeight={ratioConfig.height}
+                style={{ width: '100%', height: '100%' }}
+              />
+            ) : (
+              <div 
+                className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className="text-5xl mb-3">📹</div>
+                <p className="text-white/70 text-sm">Add video</p>
+              </div>
+            )}
+
+            {/* Transcribing overlay */}
+            {isTranscribing && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-3xl mb-2 animate-pulse">🎙️</div>
+                  <p className="text-white text-sm">Generating captions...</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right side quick actions */}
+          <div className="ml-4 flex flex-col gap-2">
+            {quickActions.map((action) => (
+              <button
+                key={action.id}
+                onClick={() => {
+                  if (action.id === 'text') {
+                    addTextOverlay();
+                  } else {
+                    setActivePanel(activePanel === action.id ? null : action.id as typeof activePanel);
+                  }
+                }}
+                className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center transition ${
+                  activePanel === action.id
+                    ? 'bg-white text-black'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                }`}
+              >
+                <span className="text-lg">{action.icon}</span>
+                <span className="text-[10px] mt-0.5">{action.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex">
-          {/* Preview Panel */}
-          <div className="flex-1 p-6 flex flex-col">
-            <div 
-              className="flex-1 bg-black rounded-xl overflow-hidden relative"
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              {uploadedFile ? (
-                <Player
-                  component={PreviewComposition}
-                  inputProps={{
-                    transcript: transcript || undefined,
-                    captionStyle,
-                    currentTime,
-                  }}
-                  durationInFrames={Math.max(60, (transcript?.duration || 10) * 60)}
-                  fps={60}
-                  compositionWidth={ratioConfig.width}
-                  compositionHeight={ratioConfig.height}
-                  style={{ width: '100%', height: '100%' }}
-                  controls
-                />
-              ) : (
-                <div 
-                  className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="text-6xl mb-4">📹</div>
-                  <p className="text-white/70 text-lg mb-2">Drop video here or click to upload</p>
-                  <p className="text-white/40 text-sm">Supports MP4, MOV, WebM</p>
-                </div>
+        {/* Right panel */}
+        {activePanel && (
+          <div className="w-80 bg-gray-900 border-l border-white/10 overflow-y-auto">
+            <div className="p-4">
+              {/* Close button */}
+              <button
+                onClick={() => setActivePanel(null)}
+                className="absolute top-4 right-4 text-white/60 hover:text-white"
+              >
+                ✕
+              </button>
+
+              {activePanel === 'clips' && (
+                <AssetManager onSelectAsset={(asset) => console.log('Selected:', asset)} />
               )}
               
-              {isTranscribing && (
-                <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-4xl mb-4 animate-pulse">🎙️</div>
-                    <p className="text-white font-medium">Transcribing audio...</p>
-                    <p className="text-white/50 text-sm">This may take a moment</p>
+              {activePanel === 'captions' && (
+                <CaptionStylePicker selected={captionStyle} onSelect={setCaptionStyle} />
+              )}
+              
+              {activePanel === 'export' && (
+                <ExportPresets selected={aspectRatio} onSelect={setAspectRatio} />
+              )}
+
+              {activePanel === 'stickers' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Stickers</h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {['😀', '🔥', '💯', '❤️', '👍', '🎉', '⭐', '💪', '🚀', '💡', '✅', '🎯'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        className="w-12 h-12 bg-white/10 rounded-lg text-2xl hover:bg-white/20 transition"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
-            </div>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/*,audio/*"
-              onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-              className="hidden"
-            />
 
-            {/* Timeline placeholder */}
-            <div className="h-24 mt-4 bg-black/50 rounded-xl flex items-center justify-center">
-              {transcript ? (
-                <div className="w-full px-4">
-                  <div className="h-12 bg-white/10 rounded-lg relative overflow-hidden">
-                    {/* Waveform visualization placeholder */}
-                    <div className="absolute inset-0 flex items-center">
-                      {Array.from({ length: 50 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 mx-px bg-indigo-500/50"
-                          style={{ height: `${Math.random() * 80 + 20}%` }}
-                        />
-                      ))}
-                    </div>
+              {activePanel === 'effects' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Effects</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { name: 'Blur', icon: '🌫️' },
+                      { name: 'Zoom', icon: '🔍' },
+                      { name: 'Shake', icon: '📳' },
+                      { name: 'Flash', icon: '⚡' },
+                      { name: 'Glitch', icon: '📺' },
+                      { name: 'VHS', icon: '📼' },
+                    ].map((effect) => (
+                      <button
+                        key={effect.name}
+                        className="p-3 bg-white/10 rounded-lg text-left hover:bg-white/20 transition"
+                      >
+                        <span className="text-xl">{effect.icon}</span>
+                        <p className="text-white text-sm mt-1">{effect.name}</p>
+                      </button>
+                    ))}
                   </div>
-                  <p className="text-white/40 text-xs mt-2 text-center">
-                    {transcript.words.length} words • {Math.round(transcript.duration)}s duration
-                  </p>
                 </div>
-              ) : (
-                <p className="text-white/30">Timeline will appear after upload</p>
+              )}
+
+              {activePanel === 'audio' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Audio</h3>
+                  <div className="space-y-2">
+                    <button className="w-full p-3 bg-white/10 rounded-lg text-left hover:bg-white/20 transition flex items-center gap-3">
+                      <span className="text-xl">🎵</span>
+                      <div>
+                        <p className="text-white text-sm">Add Music</p>
+                        <p className="text-white/50 text-xs">From library</p>
+                      </div>
+                    </button>
+                    <button className="w-full p-3 bg-white/10 rounded-lg text-left hover:bg-white/20 transition flex items-center gap-3">
+                      <span className="text-xl">🎤</span>
+                      <div>
+                        <p className="text-white text-sm">Voiceover</p>
+                        <p className="text-white/50 text-xs">Record or AI voice</p>
+                      </div>
+                    </button>
+                    <button className="w-full p-3 bg-white/10 rounded-lg text-left hover:bg-white/20 transition flex items-center gap-3">
+                      <span className="text-xl">🔊</span>
+                      <div>
+                        <p className="text-white text-sm">Sound Effects</p>
+                        <p className="text-white/50 text-xs">AI generated</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Right Panel - Controls */}
-          <div className="w-96 border-l border-white/10 bg-black/30 overflow-y-auto p-6">
-            {activeTab === 'edit' && (
-              <div className="space-y-6">
-                {/* Simple Editor Controls */}
-                <SimpleEditor 
-                  duration={transcript?.duration || 10}
-                  onEditChange={(edit) => console.log('Edit changed:', edit)}
-                />
+      {/* Bottom timeline */}
+      <div className="h-44 bg-gray-900 border-t border-white/10 shrink-0">
+        {/* Playback controls */}
+        <div className="h-12 flex items-center justify-center gap-4 border-b border-white/10">
+          <button className="text-white/60 hover:text-white">
+            ⏮️
+          </button>
+          <button 
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black"
+          >
+            {isPlaying ? '⏸️' : '▶️'}
+          </button>
+          <button className="text-white/60 hover:text-white">
+            ⏭️
+          </button>
+          <span className="text-white/60 text-sm font-mono">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+        </div>
 
-                {/* Project Settings */}
-                <div className="pt-4 border-t border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-4">Project Settings</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-white/60 text-sm block mb-2">Aspect Ratio</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(ASPECT_RATIOS).map(([key, config]) => (
-                          <button
-                            key={key}
-                            onClick={() => setAspectRatio(key as AspectRatio)}
-                            className={`p-3 rounded-lg border transition text-left ${
-                              aspectRatio === key
-                                ? 'border-indigo-500 bg-indigo-500/20'
-                                : 'border-white/20 hover:border-white/40'
-                            }`}
-                          >
-                            <span className="text-lg mr-2">{config.icon}</span>
-                            <span className="text-white text-sm">{config.ratio}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+        {/* Timeline scrubber */}
+        <div 
+          ref={timelineRef}
+          className="h-8 mx-4 mt-2 relative cursor-pointer"
+          onClick={handleTimelineClick}
+        >
+          {/* Time markers */}
+          <div className="absolute inset-0 flex justify-between text-white/30 text-xs">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <span key={i}>{formatTime((duration / 5) * i)}</span>
+            ))}
+          </div>
+          
+          {/* Progress bar */}
+          <div className="absolute top-4 left-0 right-0 h-1 bg-white/20 rounded">
+            <div 
+              className="h-full bg-pink-500 rounded"
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            />
+          </div>
+          
+          {/* Playhead */}
+          <div 
+            className="absolute top-2 w-0.5 h-6 bg-white"
+            style={{ left: `${(currentTime / duration) * 100}%` }}
+          />
+        </div>
+
+        {/* Timeline tracks */}
+        <div className="mx-4 mt-2 space-y-1 overflow-x-auto">
+          {/* Video track */}
+          <div className="h-10 bg-white/5 rounded relative">
+            {timelineClips
+              .filter(c => c.track === 0)
+              .map((clip) => (
+                <div
+                  key={clip.id}
+                  onClick={() => setSelectedClip(clip.id)}
+                  className={`absolute top-1 bottom-1 rounded cursor-pointer transition ${
+                    selectedClip === clip.id ? 'ring-2 ring-white' : ''
+                  }`}
+                  style={{
+                    left: `${(clip.startTime / duration) * 100}%`,
+                    width: `${(clip.duration / duration) * 100}%`,
+                    backgroundColor: clip.color,
+                  }}
+                >
+                  <span className="text-white text-xs px-2 truncate block">
+                    {clip.name}
+                  </span>
                 </div>
+              ))}
+          </div>
+          
+          {/* Text/overlay track */}
+          <div className="h-8 bg-white/5 rounded relative">
+            {timelineClips
+              .filter(c => c.track === 1)
+              .map((clip) => (
+                <div
+                  key={clip.id}
+                  onClick={() => setSelectedClip(clip.id)}
+                  className={`absolute top-1 bottom-1 rounded cursor-pointer transition ${
+                    selectedClip === clip.id ? 'ring-2 ring-white' : ''
+                  }`}
+                  style={{
+                    left: `${(clip.startTime / duration) * 100}%`,
+                    width: `${(clip.duration / duration) * 100}%`,
+                    backgroundColor: clip.color,
+                  }}
+                >
+                  <span className="text-white text-[10px] px-1 truncate block">
+                    {clip.name}
+                  </span>
+                </div>
+              ))}
+          </div>
 
-                {transcript && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-4">Transcript</h3>
-                    <div className="bg-black/50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                      <p className="text-white/80 text-sm leading-relaxed">
-                        {transcript.text}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'assets' && (
-              <AssetManager 
-                onSelectAsset={(asset) => {
-                  console.log('Selected asset:', asset);
-                  // TODO: Add to timeline or preview
-                }}
-              />
-            )}
-
-            {activeTab === 'captions' && (
-              <CaptionStylePicker 
-                selected={captionStyle} 
-                onSelect={setCaptionStyle}
-              />
-            )}
-
-            {activeTab === 'export' && (
-              <ExportPresets 
-                selected={aspectRatio} 
-                onSelect={setAspectRatio}
-              />
-            )}
-
-            {activeTab === 'ai' && (
-              <div className="h-full">
-                <AIPromptEditor />
-              </div>
-            )}
+          {/* Audio track */}
+          <div className="h-8 bg-white/5 rounded relative">
+            {timelineClips
+              .filter(c => c.track === 2)
+              .map((clip) => (
+                <div
+                  key={clip.id}
+                  className="absolute top-1 bottom-1 rounded"
+                  style={{
+                    left: `${(clip.startTime / duration) * 100}%`,
+                    width: `${(clip.duration / duration) * 100}%`,
+                    backgroundColor: clip.color,
+                  }}
+                >
+                  <span className="text-white text-[10px] px-1">{clip.name}</span>
+                </div>
+              ))}
           </div>
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*,audio/*"
+        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+        className="hidden"
+      />
     </div>
   );
 }
