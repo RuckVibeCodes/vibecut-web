@@ -66,12 +66,12 @@ export default function Home() {
               Ship professional talking-head videos in minutes, not hours.
             </p>
             <div className="flex gap-4 justify-center">
-              <button 
-                onClick={() => setActiveTab('create')}
+              <Link 
+                href="/editor"
                 className="px-8 py-4 bg-white text-indigo-900 font-semibold rounded-xl hover:bg-white/90 transition"
               >
-                Start Creating
-              </button>
+                Open Editor
+              </Link>
               <a 
                 href="https://github.com/RuckVibeCodes/vibecut"
                 target="_blank"
