@@ -9,6 +9,7 @@ interface ApiKeys {
   elevenlabs: string;
   replicate: string;
   deepgram: string;
+  wavespeed: string;
 }
 
 const API_KEY_CONFIG = [
@@ -47,6 +48,13 @@ const API_KEY_CONFIG = [
     placeholder: '',
     docsUrl: 'https://console.deepgram.com/',
   },
+  {
+    key: 'wavespeed' as const,
+    name: 'WaveSpeed AI',
+    description: 'For AI video/image generation — 700+ models including Sora, Wan, Seedream',
+    placeholder: '',
+    docsUrl: 'https://wavespeed.ai/settings/api-keys',
+  },
 ];
 
 export default function SettingsPage() {
@@ -56,6 +64,7 @@ export default function SettingsPage() {
     elevenlabs: '',
     replicate: '',
     deepgram: '',
+    wavespeed: '',
   });
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
