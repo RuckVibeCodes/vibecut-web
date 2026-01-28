@@ -41,6 +41,12 @@ export default function Home() {
               Templates
             </button>
             <Link 
+              href="/tools"
+              className="text-sm font-medium text-white/60 hover:text-white transition"
+            >
+              🧠 AI Tools
+            </Link>
+            <Link 
               href="/settings"
               className="text-sm font-medium text-white/60 hover:text-white transition"
             >
