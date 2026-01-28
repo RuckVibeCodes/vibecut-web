@@ -6,6 +6,7 @@ import { Player } from '@remotion/player';
 import { CaptionStylePicker } from '@/components/CaptionStylePicker';
 import { ExportPresets } from '@/components/ExportPresets';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
+import { AssetManager } from '@/components/AssetManager';
 import { 
   AspectRatio, 
   CaptionStyleId, 
@@ -78,7 +79,7 @@ const PreviewComposition: React.FC<{
 };
 
 export default function EditorPage() {
-  const [activeTab, setActiveTab] = useState<'edit' | 'captions' | 'export' | 'ai'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'assets' | 'captions' | 'export' | 'ai'>('edit');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [captionStyle, setCaptionStyle] = useState<CaptionStyleId>('tiktok-bounce');
   const [transcript, setTranscript] = useState<Transcript | null>(null);
@@ -169,6 +170,7 @@ export default function EditorPage() {
         <div className="w-16 bg-black/50 border-r border-white/10 flex flex-col items-center py-4 gap-2">
           {[
             { id: 'edit', icon: '✂️', label: 'Edit' },
+            { id: 'assets', icon: '📁', label: 'Assets' },
             { id: 'captions', icon: '💬', label: 'Captions' },
             { id: 'export', icon: '📤', label: 'Export' },
             { id: 'ai', icon: '✨', label: 'AI' },
@@ -309,6 +311,15 @@ export default function EditorPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {activeTab === 'assets' && (
+              <AssetManager 
+                onSelectAsset={(asset) => {
+                  console.log('Selected asset:', asset);
+                  // TODO: Add to timeline or preview
+                }}
+              />
             )}
 
             {activeTab === 'captions' && (
