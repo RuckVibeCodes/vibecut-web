@@ -281,56 +281,38 @@ export default function EditorPage() {
 
   return (
     <div className="h-screen bg-black flex flex-col overflow-hidden touch-manipulation">
-      {/* Top bar */}
-      <header className="h-12 md:h-14 bg-black border-b border-white/10 flex items-center justify-between px-3 md:px-4 shrink-0 safe-area-inset-top">
-        <div className="flex items-center gap-2 md:gap-4">
-          <Link href="/" className="text-white/60 hover:text-white text-sm">
-            ←
-          </Link>
-          <span className="text-white font-medium text-sm truncate max-w-[120px] md:max-w-none">
-            {uploadedFile?.name || 'New Project'}
-          </span>
-        </div>
+      {/* Top bar - minimal on mobile */}
+      <header className="h-11 md:h-14 bg-black/90 backdrop-blur flex items-center justify-between px-4 shrink-0 pt-safe">
+        <Link href="/" className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white">
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </Link>
         
-        <div className="flex items-center gap-2 md:gap-3">
-          {/* Aspect ratio toggle - hidden on mobile, show in panel */}
-          <div className="hidden md:flex bg-white/10 rounded-lg p-1">
-            {(['9:16', '16:9', '1:1'] as AspectRatio[]).map((ratio) => (
-              <button
-                key={ratio}
-                onClick={() => setAspectRatio(ratio)}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${
-                  aspectRatio === ratio
-                    ? 'bg-white text-black'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                {ratio}
-              </button>
-            ))}
-          </div>
-          
-          <button
-            onClick={() => setActivePanel('export')}
-            className="px-3 md:px-4 py-1.5 md:py-2 bg-pink-500 text-white rounded-lg text-xs md:text-sm font-semibold hover:bg-pink-600 transition"
-          >
-            Export
-          </button>
-        </div>
+        <span className="text-white font-semibold text-sm absolute left-1/2 -translate-x-1/2">
+          {uploadedFile ? 'Edit' : 'New Project'}
+        </span>
+        
+        <button
+          onClick={() => setActivePanel('export')}
+          className="text-pink-500 font-semibold text-sm"
+        >
+          Export
+        </button>
       </header>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Preview area */}
-        <div className="flex-1 flex items-center justify-center bg-black p-2 md:p-4 relative">
+        <div className="flex-1 flex items-center justify-center bg-black px-4 py-2 md:p-4 relative">
           <div 
-            className="relative bg-gray-900 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl"
+            className="relative bg-gray-900/80 rounded-3xl overflow-hidden shadow-2xl border border-white/10"
             style={{
               width: isMobile 
-                ? (aspectRatio === '9:16' ? '200px' : aspectRatio === '1:1' ? '280px' : '320px')
+                ? (aspectRatio === '9:16' ? '240px' : aspectRatio === '1:1' ? '300px' : '340px')
                 : (aspectRatio === '9:16' ? '300px' : aspectRatio === '1:1' ? '400px' : '500px'),
               height: isMobile
-                ? (aspectRatio === '9:16' ? '356px' : aspectRatio === '1:1' ? '280px' : '180px')
+                ? (aspectRatio === '9:16' ? '426px' : aspectRatio === '1:1' ? '300px' : '191px')
                 : (aspectRatio === '9:16' ? '533px' : aspectRatio === '1:1' ? '400px' : '281px'),
             }}
           >
@@ -516,30 +498,39 @@ export default function EditorPage() {
       </div>
 
       {/* Bottom timeline */}
-      <div className={`${isMobile ? 'h-32' : 'h-44'} bg-gray-900 border-t border-white/10 shrink-0 safe-area-inset-bottom`}>
+      <div className={`${isMobile ? 'h-28' : 'h-44'} bg-black border-t border-white/10 shrink-0 pb-safe`}>
         {/* Playback controls */}
-        <div className="h-10 md:h-12 flex items-center justify-center gap-3 md:gap-4 border-b border-white/10">
-          <button className="text-white/60 hover:text-white text-sm md:text-base">
-            ⏮️
+        <div className="h-12 flex items-center justify-center gap-6">
+          <button className="text-white/40 hover:text-white">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+            </svg>
           </button>
           <button 
             onClick={() => setIsPlaying(!isPlaying)}
-            className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center text-black"
+            className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black shadow-lg"
           >
-            {isPlaying ? '⏸️' : '▶️'}
+            {isPlaying ? (
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            )}
           </button>
-          <button className="text-white/60 hover:text-white text-sm md:text-base">
-            ⏭️
+          <button className="text-white/40 hover:text-white">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+            </svg>
           </button>
-          <span className="text-white/60 text-xs md:text-sm font-mono">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
         </div>
 
         {/* Timeline scrubber */}
         <div 
           ref={timelineRef}
-          className="h-6 md:h-8 mx-2 md:mx-4 mt-1 md:mt-2 relative cursor-pointer touch-none"
+          className="mx-4 relative cursor-pointer touch-none"
           onClick={handleTimelineClick}
           onTouchMove={(e) => {
             if (!timelineRef.current) return;
@@ -550,96 +541,64 @@ export default function EditorPage() {
             setCurrentTime(percent * duration);
           }}
         >
-          {/* Time markers */}
-          <div className="absolute inset-0 flex justify-between text-white/30 text-xs">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <span key={i}>{formatTime((duration / 5) * i)}</span>
-            ))}
+          {/* Time display */}
+          <div className="flex justify-between text-white/40 text-xs mb-1">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
           </div>
           
           {/* Progress bar */}
-          <div className="absolute top-4 left-0 right-0 h-1 bg-white/20 rounded">
+          <div className="h-1 bg-white/20 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-pink-500 rounded"
+              className="h-full bg-pink-500 rounded-full transition-all"
               style={{ width: `${(currentTime / duration) * 100}%` }}
             />
           </div>
-          
-          {/* Playhead */}
-          <div 
-            className="absolute top-2 w-0.5 h-6 bg-white"
-            style={{ left: `${(currentTime / duration) * 100}%` }}
-          />
-        </div>
 
-        {/* Timeline tracks */}
-        <div className="mx-2 md:mx-4 mt-1 md:mt-2 space-y-1 overflow-x-auto">
-          {/* Video track */}
-          <div className="h-8 md:h-10 bg-white/5 rounded relative">
-            {timelineClips
-              .filter(c => c.track === 0)
-              .map((clip) => (
-                <div
-                  key={clip.id}
-                  onClick={() => setSelectedClip(clip.id)}
-                  className={`absolute top-1 bottom-1 rounded cursor-pointer transition ${
-                    selectedClip === clip.id ? 'ring-2 ring-white' : ''
-                  }`}
-                  style={{
-                    left: `${(clip.startTime / duration) * 100}%`,
-                    width: `${(clip.duration / duration) * 100}%`,
-                    backgroundColor: clip.color,
-                  }}
-                >
-                  <span className="text-white text-xs px-2 truncate block">
-                    {clip.name}
-                  </span>
-                </div>
-              ))}
-          </div>
-          
-          {/* Text/overlay track */}
-          <div className={`${isMobile ? 'h-6' : 'h-8'} bg-white/5 rounded relative`}>
-            {timelineClips
-              .filter(c => c.track === 1)
-              .map((clip) => (
-                <div
-                  key={clip.id}
-                  onClick={() => setSelectedClip(clip.id)}
-                  className={`absolute top-1 bottom-1 rounded cursor-pointer transition ${
-                    selectedClip === clip.id ? 'ring-2 ring-white' : ''
-                  }`}
-                  style={{
-                    left: `${(clip.startTime / duration) * 100}%`,
-                    width: `${(clip.duration / duration) * 100}%`,
-                    backgroundColor: clip.color,
-                  }}
-                >
-                  <span className="text-white text-[10px] px-1 truncate block">
-                    {clip.name}
-                  </span>
-                </div>
-              ))}
-          </div>
+          {/* Clips preview - simplified for mobile */}
+          {!isMobile && (
+            <div className="mt-2 h-10 bg-white/5 rounded relative">
+              {timelineClips
+                .filter(c => c.track === 0)
+                .map((clip) => (
+                  <div
+                    key={clip.id}
+                    onClick={() => setSelectedClip(clip.id)}
+                    className={`absolute top-1 bottom-1 rounded cursor-pointer ${
+                      selectedClip === clip.id ? 'ring-2 ring-white' : ''
+                    }`}
+                    style={{
+                      left: `${(clip.startTime / duration) * 100}%`,
+                      width: `${(clip.duration / duration) * 100}%`,
+                      backgroundColor: clip.color,
+                    }}
+                  >
+                    <span className="text-white text-xs px-2 truncate block">
+                      {clip.name}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
 
-          {/* Audio track */}
-          <div className={`${isMobile ? 'hidden' : 'h-8'} bg-white/5 rounded relative`}>
-            {timelineClips
-              .filter(c => c.track === 2)
-              .map((clip) => (
-                <div
-                  key={clip.id}
-                  className="absolute top-1 bottom-1 rounded"
-                  style={{
-                    left: `${(clip.startTime / duration) * 100}%`,
-                    width: `${(clip.duration / duration) * 100}%`,
-                    backgroundColor: clip.color,
-                  }}
-                >
-                  <span className="text-white text-[10px] px-1">{clip.name}</span>
-                </div>
-              ))}
-          </div>
+          {/* Text clips indicator */}
+          {timelineClips.filter(c => c.track === 1).length > 0 && (
+            <div className={`${isMobile ? 'mt-1 h-1.5' : 'mt-1 h-6'} bg-white/5 rounded relative`}>
+              {timelineClips
+                .filter(c => c.track === 1)
+                .map((clip) => (
+                  <div
+                    key={clip.id}
+                    className="absolute top-0 bottom-0 rounded"
+                    style={{
+                      left: `${(clip.startTime / duration) * 100}%`,
+                      width: `${(clip.duration / duration) * 100}%`,
+                      backgroundColor: clip.color,
+                    }}
+                  />
+                ))}
+            </div>
+          )}
         </div>
       </div>
 
