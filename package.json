@@ -6,10 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "remotion:preview": "remotion preview src/remotion/Root.tsx",
+    "remotion:build": "remotion bundle src/remotion/Root.tsx --out-dir remotion-bundle",
+    "remotion:render": "remotion render src/remotion/Root.tsx CinematicVideo-16-9"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
+    "@remotion/cli": "^4.0.410",
+    "@remotion/lambda": "^4.0.410",
     "@remotion/player": "^4.0.410",
     "@supabase/supabase-js": "^2.93.2",
     "next": "16.1.6",

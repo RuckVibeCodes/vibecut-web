@@ -10,8 +10,13 @@ const RENDER_CONFIG = {
   functionName: process.env.REMOTION_LAMBDA_FUNCTION || 'vibecut-render',
   bucketName: process.env.REMOTION_S3_BUCKET || 'vibecut-renders',
   
-  // Composition settings
-  compositionId: 'CinematicVideo',
+  // Composition settings by aspect ratio
+  compositionIds: {
+    '16:9': 'CinematicVideo-16-9',
+    '9:16': 'CinematicVideo-9-16',
+    '1:1': 'CinematicVideo-1-1',
+    '4:5': 'CinematicVideo-4-5',
+  } as Record<string, string>,
   fps: 30,
   
   // Quality presets
@@ -164,7 +169,7 @@ export async function triggerLambdaRender(
     const { renderId, bucketName } = await renderMediaOnLambda({
       region: RENDER_CONFIG.awsRegion as 'us-east-1',
       functionName: RENDER_CONFIG.functionName,
-      composition: RENDER_CONFIG.compositionId,
+      composition: RENDER_CONFIG.compositionIds[aspectRatio] || 'CinematicVideo-16-9',
       serveUrl: process.env.REMOTION_SERVE_URL || 'https://vibecut-web.vercel.app/remotion',
       inputProps,
       codec: 'h264',
