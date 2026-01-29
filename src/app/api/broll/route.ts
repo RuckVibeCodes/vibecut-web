@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
+import { WaveSpeedClient } from '@/lib/wavespeed';
+import type { WaveSpeedModel } from '@/lib/types/ai';
 
 // Generate B-Roll video using WaveSpeed AI or Replicate
 export async function POST(request: Request) {
   try {
-    const { prompt, duration = 4, aspectRatio = '16:9', provider = 'wavespeed', apiKey } = await request.json();
+    const { 
+      prompt, 
+      duration = 4, 
+      aspectRatio = '16:9', 
+      provider = 'wavespeed',
+      model,
+      apiKey 
+    } = await request.json();
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
@@ -14,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     if (provider === 'wavespeed') {
-      return await generateWithWaveSpeed(prompt, duration, aspectRatio, apiKey);
+      return await generateWithWaveSpeed(prompt, duration, aspectRatio, apiKey, model);
     } else if (provider === 'replicate') {
       return await generateWithReplicate(prompt, duration, aspectRatio, apiKey);
     } else {
@@ -29,41 +38,45 @@ export async function POST(request: Request) {
   }
 }
 
-async function generateWithWaveSpeed(prompt: string, duration: number, aspectRatio: string, apiKey: string) {
-  // WaveSpeed API for video generation
-  // Using their Wan 2.1 or similar model
-  const response = await fetch('https://api.wavespeed.ai/v1/video/generate', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      model: 'wan-2.1', // or 'veo-2' when available
-      duration: Math.min(duration, 10), // Max 10 seconds
-      aspect_ratio: aspectRatio,
-      quality: 'high',
-    }),
+async function generateWithWaveSpeed(
+  prompt: string, 
+  duration: number, 
+  aspectRatio: string, 
+  apiKey: string,
+  model?: WaveSpeedModel
+) {
+  const client = new WaveSpeedClient({ apiKey });
+  
+  const result = await client.generateVideo(prompt, {
+    model: model || 'pixverse-v4.5',
+    duration: Math.min(duration, 10),
+    aspectRatio: aspectRatio as '16:9' | '9:16' | '1:1' | '4:5',
+    quality: 'high',
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `WaveSpeed API error: ${response.status}`);
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message || 'WaveSpeed generation failed');
   }
 
-  const data = await response.json();
-  
   return NextResponse.json({
     success: true,
-    videoUrl: data.video_url || data.output?.video_url,
-    thumbnailUrl: data.thumbnail_url,
-    duration: data.duration,
+    videoUrl: result.data.videoUrl,
+    thumbnailUrl: result.data.thumbnailUrl,
+    duration: result.data.duration,
+    width: result.data.width,
+    height: result.data.height,
     provider: 'wavespeed',
+    model: result.data.model,
+    requestId: result.requestId,
   });
 }
 
-async function generateWithReplicate(prompt: string, duration: number, aspectRatio: string, apiKey: string) {
+async function generateWithReplicate(
+  prompt: string, 
+  duration: number, 
+  aspectRatio: string, 
+  apiKey: string
+) {
   // Start prediction with Replicate
   const response = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
@@ -147,6 +160,16 @@ export async function GET(request: Request) {
       videoUrl: result.output,
       error: result.error,
     });
+  }
+
+  if (provider === 'wavespeed') {
+    // WaveSpeed status check
+    const client = new WaveSpeedClient({ apiKey });
+    // Status is handled internally by the client during generation
+    // This endpoint is primarily for Replicate's async model
+    return NextResponse.json({ 
+      error: 'WaveSpeed handles polling internally. Check generation result.' 
+    }, { status: 400 });
   }
 
   return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });

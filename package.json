@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
     "@remotion/player": "^4.0.410",
     "@supabase/supabase-js": "^2.93.2",
     "next": "16.1.6",
