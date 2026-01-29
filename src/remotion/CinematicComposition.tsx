@@ -23,7 +23,7 @@ import { TranscriptWord } from '@/lib/types';
  */
 export interface CinematicCompositionProps {
   // Core media
-  videoSrc: string;
+  videoSrc?: string;
   audioSrc?: string;
   audioVolume?: number;
   audioStartFrom?: number;
@@ -123,14 +123,18 @@ export const CinematicComposition: React.FC<CinematicCompositionProps> = ({
           smoothness={cameraSmoothness}
         >
           <AbsoluteFill>
-            <OffthreadVideo
-              src={videoSrc}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
+            {videoSrc ? (
+              <OffthreadVideo
+                src={videoSrc}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', backgroundColor: '#1a1a2e' }} />
+            )}
           </AbsoluteFill>
         </DynamicCamera>
       </ColorGrade>

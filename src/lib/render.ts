@@ -161,7 +161,9 @@ export async function triggerLambdaRender(
 
   try {
     // Import Remotion Lambda SDK dynamically
-    const { renderMediaOnLambda, getRenderProgress } = await import('@remotion/lambda/client');
+    // Using indirect import to prevent Next.js static analysis
+    const lambdaModule = '@remotion/lambda/client';
+    const { renderMediaOnLambda, getRenderProgress } = await import(/* webpackIgnore: true */ lambdaModule);
 
     updateRenderJob(job.id, { status: 'rendering', startedAt: new Date().toISOString() });
 

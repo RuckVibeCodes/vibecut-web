@@ -128,7 +128,7 @@ export const ChapterCard: React.FC<ChapterCardProps> = ({
   const subtitleOpacity = interpolate(subtitleProgress, [0, 1], [0, 1]);
   
   // Variant-specific styles
-  const variantStyles = {
+  const variantStyles: Record<string, { numberSize?: number; titleSize?: number; showLine?: boolean; letterSpacing?: string; textTransform?: string }> = {
     default: {},
     minimal: {
       numberSize: numberSize * 0.7,
@@ -145,7 +145,7 @@ export const ChapterCard: React.FC<ChapterCardProps> = ({
   };
   
   const activeVariant = variantStyles[variant] || {};
-  const finalNumberSize = activeVariant.numberSize || numberSize;
+  const finalNumberSize = activeVariant.numberSize ?? numberSize;
   
   return (
     <AbsoluteFill

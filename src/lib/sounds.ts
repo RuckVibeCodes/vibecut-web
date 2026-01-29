@@ -135,7 +135,7 @@ export function getSoundUrl(category: SoundCategory, name: SoundName): string {
     return '';
   }
   
-  const sound = categoryData[name as keyof typeof categoryData];
+  const sound = categoryData[name as keyof typeof categoryData] as SoundEntry | undefined;
   if (!sound) {
     console.warn(`Sound "${name}" not found in category "${category}"`);
     return '';
