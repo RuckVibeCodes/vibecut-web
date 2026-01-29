@@ -26,6 +26,29 @@ const DEFAULT_CONFIG: Partial<WaveSpeedConfig> = {
   timeoutMs: 300000, // 5 minutes
 };
 
+// Internal type for raw API responses
+interface WaveSpeedApiResponse {
+  video?: { url?: string };
+  output?: { video_url?: string; image_url?: string; audio_url?: string };
+  video_url?: string;
+  image_url?: string;
+  audio_url?: string;
+  thumbnail?: { url?: string };
+  audio?: { url?: string };
+  images?: Array<{ url?: string }>;
+  duration?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+  generation_time_ms?: number;
+  data?: WaveSpeedApiResponse;
+  id?: string;
+  task_id?: string;
+  request_id?: string;
+  status?: string;
+  error?: string;
+}
+
 // WaveSpeed model endpoints
 const MODEL_ENDPOINTS: Record<string, string> = {
   'pixverse-v4.5': '/pixverse/v4.5/text2video',
@@ -74,8 +97,8 @@ export class WaveSpeedClient {
     return this.executeWithPolling<VideoGenerationResult>(
       endpoint,
       requestBody,
-      (data) => ({
-        videoUrl: data.video?.url || data.output?.video_url || data.video_url,
+      (data: WaveSpeedApiResponse) => ({
+        videoUrl: data.video?.url || data.output?.video_url || data.video_url || '',
         thumbnailUrl: data.thumbnail?.url,
         duration: data.duration || options.duration || 4,
         width: data.width || 1920,
@@ -114,8 +137,8 @@ export class WaveSpeedClient {
     return this.executeWithPolling<ImageGenerationResult>(
       endpoint,
       requestBody,
-      (data) => ({
-        imageUrl: data.images?.[0]?.url || data.output?.image_url || data.image_url,
+      (data: WaveSpeedApiResponse) => ({
+        imageUrl: data.images?.[0]?.url || data.output?.image_url || data.image_url || '',
         width: options.width || 1024,
         height: options.height || 1024,
         model,
@@ -150,8 +173,8 @@ export class WaveSpeedClient {
     return this.executeWithPolling<TTSResult>(
       endpoint,
       requestBody,
-      (data) => ({
-        audioUrl: data.audio?.url || data.output?.audio_url || data.audio_url,
+      (data: WaveSpeedApiResponse) => ({
+        audioUrl: data.audio?.url || data.output?.audio_url || data.audio_url || '',
         duration: data.duration || 0,
         voiceId,
         characterCount: text.length,
@@ -180,8 +203,8 @@ export class WaveSpeedClient {
     return this.executeWithPolling<LipsyncResult>(
       endpoint,
       requestBody,
-      (data) => ({
-        videoUrl: data.video?.url || data.output?.video_url || data.video_url,
+      (data: WaveSpeedApiResponse) => ({
+        videoUrl: data.video?.url || data.output?.video_url || data.video_url || '',
         duration: data.duration || 0,
         originalImageUrl: imageUrl,
         generationTimeMs: data.generation_time_ms || 0,
@@ -196,7 +219,7 @@ export class WaveSpeedClient {
   private async executeWithPolling<T>(
     endpoint: string,
     body: Record<string, unknown>,
-    transformResult: (data: Record<string, unknown>) => T
+    transformResult: (data: WaveSpeedApiResponse) => T
   ): Promise<WaveSpeedResponse<T>> {
     let lastError: WaveSpeedError | undefined;
     
@@ -278,7 +301,7 @@ export class WaveSpeedClient {
   private async pollForCompletion(
     taskId: string,
     originalEndpoint: string
-  ): Promise<Record<string, unknown>> {
+  ): Promise<WaveSpeedApiResponse> {
     const statusEndpoint = `/tasks/${taskId}/status`;
     const maxPollTime = this.config.timeoutMs!;
     const pollInterval = 2000; // 2 seconds

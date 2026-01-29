@@ -1,46 +1,123 @@
+// VibeCut Render API
+// Triggers Lambda renders and tracks progress
+
 import { NextResponse } from 'next/server';
-
-// Render queue management
-// Note: Actual rendering would need a backend service (Lambda, Cloud Run, etc.)
-// This API manages the queue and status
-
-interface RenderJob {
-  id: string;
-  projectId: string;
-  projectName: string;
-  status: 'queued' | 'rendering' | 'completed' | 'failed';
-  progress: number;
-  createdAt: string;
-  startedAt?: string;
-  completedAt?: string;
-  outputUrl?: string;
-  error?: string;
-  config: {
-    aspectRatio: string;
-    quality: 'draft' | 'standard' | 'high';
-    format: 'mp4' | 'webm' | 'gif';
-    fps: number;
-  };
-}
-
-// In-memory queue (would be Redis/DB in production)
-const renderQueue: Map<string, RenderJob> = new Map();
+import ProjectStore from '@/lib/projectStore';
+import RenderEngine from '@/lib/render';
 
 export async function POST(request: Request) {
   try {
     const { action, ...params } = await request.json();
 
     switch (action) {
-      case 'add':
-        return addToQueue(params);
-      case 'status':
-        return getStatus(params.jobId);
-      case 'cancel':
-        return cancelJob(params.jobId);
-      case 'list':
-        return listJobs();
-      case 'clear-completed':
-        return clearCompleted();
+      case 'start': {
+        const { projectId, aspectRatios, quality = 'standard' } = params as {
+          projectId: string;
+          aspectRatios?: ('16:9' | '9:16' | '1:1' | '4:5')[];
+          quality?: 'draft' | 'standard' | 'high';
+        };
+
+        if (!projectId) {
+          return NextResponse.json({ error: 'Project ID required' }, { status: 400 });
+        }
+
+        const project = ProjectStore.get(projectId);
+        if (!project) {
+          return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+
+        if (!project.sourceVideoUrl) {
+          return NextResponse.json({ error: 'No source video in project' }, { status: 400 });
+        }
+
+        // Queue exports if not already queued
+        const ratios = aspectRatios || ['16:9'];
+        for (const ratio of ratios) {
+          ProjectStore.addExport(projectId, ratio);
+        }
+
+        // Get updated project
+        const updatedProject = ProjectStore.get(projectId);
+        if (!updatedProject) {
+          return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
+        }
+
+        // Trigger renders
+        const jobs = await RenderEngine.renderAllExports(updatedProject, quality);
+
+        // Update export statuses
+        for (const job of jobs) {
+          ProjectStore.updateExportStatus(projectId, job.aspectRatio, 'rendering');
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Started ${jobs.length} render job(s)`,
+          jobs: jobs.map(j => ({
+            id: j.id,
+            aspectRatio: j.aspectRatio,
+            status: j.status,
+            progress: j.progress,
+          })),
+        });
+      }
+
+      case 'status': {
+        const { jobId, projectId } = params as { jobId?: string; projectId?: string };
+
+        if (jobId) {
+          const job = RenderEngine.getRenderJob(jobId);
+          if (!job) {
+            return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+          }
+          return NextResponse.json({ success: true, job });
+        }
+
+        if (projectId) {
+          const jobs = RenderEngine.getProjectRenderJobs(projectId);
+          return NextResponse.json({ success: true, jobs });
+        }
+
+        const jobs = RenderEngine.listRenderJobs();
+        return NextResponse.json({ 
+          success: true, 
+          jobs,
+          stats: {
+            total: jobs.length,
+            queued: jobs.filter(j => j.status === 'queued').length,
+            rendering: jobs.filter(j => j.status === 'rendering').length,
+            completed: jobs.filter(j => j.status === 'completed').length,
+            failed: jobs.filter(j => j.status === 'failed').length,
+          },
+        });
+      }
+
+      case 'cancel': {
+        const { jobId } = params as { jobId: string };
+        
+        const job = RenderEngine.getRenderJob(jobId);
+        if (!job) {
+          return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+        }
+
+        if (job.status === 'completed') {
+          return NextResponse.json({ error: 'Cannot cancel completed job' }, { status: 400 });
+        }
+
+        RenderEngine.updateRenderJob(jobId, {
+          status: 'failed',
+          error: 'Cancelled by user',
+        });
+
+        // Update project export status
+        ProjectStore.updateExportStatus(job.projectId, job.aspectRatio, 'failed', undefined, 'Cancelled');
+
+        return NextResponse.json({
+          success: true,
+          message: 'Job cancelled',
+        });
+      }
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -53,84 +130,28 @@ export async function POST(request: Request) {
   }
 }
 
-function addToQueue(params: {
-  projectId: string;
-  projectName: string;
-  aspectRatio?: string;
-  quality?: 'draft' | 'standard' | 'high';
-  format?: 'mp4' | 'webm' | 'gif';
-  fps?: number;
-}) {
-  const job: RenderJob = {
-    id: `render-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    projectId: params.projectId,
-    projectName: params.projectName,
-    status: 'queued',
-    progress: 0,
-    createdAt: new Date().toISOString(),
-    config: {
-      aspectRatio: params.aspectRatio || '16:9',
-      quality: params.quality || 'standard',
-      format: params.format || 'mp4',
-      fps: params.fps || 30,
-    },
-  };
+// GET endpoint for polling status
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const jobId = searchParams.get('jobId');
+  const projectId = searchParams.get('projectId');
 
-  renderQueue.set(job.id, job);
-
-  // Simulate rendering process (in production, this would trigger actual render)
-  simulateRender(job.id);
-
-  return NextResponse.json({
-    success: true,
-    job: {
-      id: job.id,
-      status: job.status,
-      position: Array.from(renderQueue.values()).filter(j => j.status === 'queued').length,
-    },
-  });
-}
-
-function getStatus(jobId: string) {
-  const job = renderQueue.get(jobId);
-  
-  if (!job) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  if (jobId) {
+    const job = RenderEngine.getRenderJob(jobId);
+    if (!job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, job });
   }
 
-  return NextResponse.json({
-    success: true,
-    job,
-  });
-}
-
-function cancelJob(jobId: string) {
-  const job = renderQueue.get(jobId);
-  
-  if (!job) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  if (projectId) {
+    const jobs = RenderEngine.getProjectRenderJobs(projectId);
+    return NextResponse.json({ success: true, jobs });
   }
 
-  if (job.status === 'completed') {
-    return NextResponse.json({ error: 'Cannot cancel completed job' }, { status: 400 });
-  }
-
-  job.status = 'failed';
-  job.error = 'Cancelled by user';
-  renderQueue.set(jobId, job);
-
-  return NextResponse.json({
-    success: true,
-    message: 'Job cancelled',
-  });
-}
-
-function listJobs() {
-  const jobs = Array.from(renderQueue.values())
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  return NextResponse.json({
-    success: true,
+  const jobs = RenderEngine.listRenderJobs();
+  return NextResponse.json({ 
+    success: true, 
     jobs,
     stats: {
       total: jobs.length,
@@ -140,69 +161,4 @@ function listJobs() {
       failed: jobs.filter(j => j.status === 'failed').length,
     },
   });
-}
-
-function clearCompleted() {
-  const toDelete: string[] = [];
-  
-  renderQueue.forEach((job, id) => {
-    if (job.status === 'completed' || job.status === 'failed') {
-      toDelete.push(id);
-    }
-  });
-
-  toDelete.forEach(id => renderQueue.delete(id));
-
-  return NextResponse.json({
-    success: true,
-    cleared: toDelete.length,
-  });
-}
-
-// Simulate rendering (for demo purposes)
-async function simulateRender(jobId: string) {
-  const job = renderQueue.get(jobId);
-  if (!job) return;
-
-  // Wait in queue
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Start rendering
-  job.status = 'rendering';
-  job.startedAt = new Date().toISOString();
-  renderQueue.set(jobId, job);
-
-  // Simulate progress
-  const totalSteps = 20;
-  for (let i = 1; i <= totalSteps; i++) {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const currentJob = renderQueue.get(jobId);
-    if (!currentJob || currentJob.status === 'failed') return;
-
-    currentJob.progress = Math.round((i / totalSteps) * 100);
-    renderQueue.set(jobId, currentJob);
-  }
-
-  // Complete
-  const finalJob = renderQueue.get(jobId);
-  if (finalJob && finalJob.status !== 'failed') {
-    finalJob.status = 'completed';
-    finalJob.completedAt = new Date().toISOString();
-    finalJob.progress = 100;
-    finalJob.outputUrl = `https://storage.example.com/renders/${jobId}.${finalJob.config.format}`;
-    renderQueue.set(jobId, finalJob);
-  }
-}
-
-// GET endpoint for polling status
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const jobId = searchParams.get('jobId');
-
-  if (jobId) {
-    return getStatus(jobId);
-  }
-
-  return listJobs();
 }
