@@ -1,5 +1,8 @@
+// ColorGrade.tsx
+// Apply cinematic color grading via CSS filters
+
+import React, { ReactNode } from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
-import { ReactNode } from 'react';
 
 export type ColorGradePreset =
   | 'none'
@@ -15,35 +18,58 @@ export type ColorGradePreset =
   | 'forest'
   | 'cyberpunk'
   | 'film-noir'
-  | 'sepia';
+  | 'sepia'
+  | 'late-night'
+  | 'golden-hour'
+  | 'documentary'
+  | 'high-contrast';
 
 export interface ColorGradeConfig {
-  brightness?: number; // 0-200, default 100
-  contrast?: number; // 0-200, default 100
-  saturation?: number; // 0-200, default 100
-  hueRotate?: number; // 0-360 degrees
-  blur?: number; // 0-20 px
-  grayscale?: number; // 0-100
-  sepia?: number; // 0-100
-  invert?: number; // 0-100
-  opacity?: number; // 0-1
-  overlay?: string; // CSS color for overlay
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  hueRotate?: number;
+  blur?: number;
+  grayscale?: number;
+  sepia?: number;
+  invert?: number;
+  opacity?: number;
+  overlay?: string;
   overlayBlendMode?: string;
   overlayOpacity?: number;
   vignette?: boolean;
-  vignetteIntensity?: number; // 0-1
+  vignetteIntensity?: number;
 }
 
 export interface ColorGradeProps {
   children: ReactNode;
   preset?: ColorGradePreset;
   config?: ColorGradeConfig;
-  intensity?: number; // 0-1, how strong the effect is
+  intensity?: number;
   animateIn?: boolean;
-  animateInDuration?: number; // frames
+  animateInDuration?: number;
+  // Legacy props for backward compatibility
+  filter?: string;
 }
 
-// Preset configurations
+// Predefined cinematic grades - legacy format
+export const COLOR_GRADES = {
+  none: 'none',
+  warm: 'sepia(0.15) saturate(1.1) brightness(1.05)',
+  cool: 'saturate(0.9) hue-rotate(-10deg) brightness(1.05)',
+  noir: 'grayscale(0.8) contrast(1.2) brightness(0.95)',
+  vintage: 'sepia(0.3) contrast(0.9) brightness(1.1) saturate(0.8)',
+  cinematic: 'contrast(1.1) saturate(1.15) brightness(0.95)',
+  'late-night': 'saturate(0.85) brightness(0.85) contrast(1.15) hue-rotate(-5deg)',
+  'golden-hour': 'sepia(0.2) saturate(1.3) brightness(1.1) contrast(1.05)',
+  'documentary': 'contrast(1.05) saturate(0.9) brightness(1.02)',
+  'high-contrast': 'contrast(1.3) saturate(1.1) brightness(0.95)',
+  'muted': 'saturate(0.7) contrast(0.95) brightness(1.05)',
+  'vibrant': 'saturate(1.4) contrast(1.05) brightness(1.02)',
+  'film-grain': 'contrast(1.1) brightness(0.98) saturate(0.95)',
+};
+
+// Preset configurations - new format with more control
 const GRADE_PRESETS: Record<ColorGradePreset, ColorGradeConfig> = {
   none: {},
   warm: {
@@ -141,6 +167,32 @@ const GRADE_PRESETS: Record<ColorGradePreset, ColorGradeConfig> = {
     saturation: 100,
     sepia: 80,
   },
+  'late-night': {
+    brightness: 85,
+    contrast: 115,
+    saturation: 85,
+    hueRotate: -5,
+    overlay: 'rgba(0, 20, 40, 0.15)',
+    vignette: true,
+    vignetteIntensity: 0.4,
+  },
+  'golden-hour': {
+    brightness: 110,
+    contrast: 105,
+    saturation: 130,
+    sepia: 20,
+    overlay: 'rgba(255, 200, 100, 0.12)',
+  },
+  documentary: {
+    brightness: 102,
+    contrast: 105,
+    saturation: 90,
+  },
+  'high-contrast': {
+    brightness: 95,
+    contrast: 130,
+    saturation: 110,
+  },
 };
 
 export const ColorGrade: React.FC<ColorGradeProps> = ({
@@ -150,14 +202,36 @@ export const ColorGrade: React.FC<ColorGradeProps> = ({
   intensity = 1,
   animateIn = false,
   animateInDuration = 30,
+  filter,
 }) => {
   const frame = useCurrentFrame();
 
-  // Get preset and merge with custom config
+  // Legacy mode: if filter prop is provided, use the old behavior
+  if (filter !== undefined) {
+    if (intensity >= 1 || filter === 'none') {
+      return (
+        <div style={{ width: '100%', height: '100%', filter: filter === 'none' ? undefined : filter }}>
+          {children}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+          {children}
+        </div>
+        <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, filter, opacity: intensity, pointerEvents: 'none' }}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // New mode: use preset and config
   const presetConfig = GRADE_PRESETS[preset];
   const finalConfig: ColorGradeConfig = { ...presetConfig, ...config };
 
-  // Calculate animation progress
   const animationProgress = animateIn
     ? interpolate(frame, [0, animateInDuration], [0, 1], {
         extrapolateLeft: 'clamp',
@@ -167,7 +241,6 @@ export const ColorGrade: React.FC<ColorGradeProps> = ({
 
   const effectiveIntensity = intensity * animationProgress;
 
-  // Build filter string
   const buildFilter = () => {
     const filters: string[] = [];
 
@@ -214,16 +287,14 @@ export const ColorGrade: React.FC<ColorGradeProps> = ({
     return filters.length > 0 ? filters.join(' ') : undefined;
   };
 
-  const filter = buildFilter();
+  const filterStr = buildFilter();
 
   return (
     <AbsoluteFill>
-      {/* Main content with filter */}
-      <AbsoluteFill style={{ filter, opacity: finalConfig.opacity ?? 1 }}>
+      <AbsoluteFill style={{ filter: filterStr, opacity: finalConfig.opacity ?? 1 }}>
         {children}
       </AbsoluteFill>
 
-      {/* Color overlay */}
       {finalConfig.overlay && (
         <AbsoluteFill
           style={{
@@ -235,7 +306,6 @@ export const ColorGrade: React.FC<ColorGradeProps> = ({
         />
       )}
 
-      {/* Vignette effect */}
       {finalConfig.vignette && (
         <AbsoluteFill
           style={{
@@ -248,5 +318,94 @@ export const ColorGrade: React.FC<ColorGradeProps> = ({
   );
 };
 
-// Export presets for easy access
 export const ColorGradePresets = GRADE_PRESETS;
+
+// Film grain overlay component
+export const FilmGrain: React.FC<{
+  children: React.ReactNode;
+  intensity?: number;
+  animated?: boolean;
+}> = ({ children, intensity = 0.1, animated = true }) => {
+  const noiseId = `noise-${Math.random().toString(36).substr(2, 9)}`;
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {children}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          opacity: intensity,
+          mixBlendMode: 'overlay',
+        }}
+      >
+        <svg width="100%" height="100%" style={{ position: 'absolute' }}>
+          <defs>
+            <filter id={noiseId}>
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency={animated ? '0.8' : '0.6'}
+                numOctaves="4"
+                seed={animated ? Math.floor(Math.random() * 100) : 42}
+                stitchTiles="stitch"
+              />
+              <feColorMatrix type="saturate" values="0" />
+            </filter>
+          </defs>
+          <rect width="100%" height="100%" filter={`url(#${noiseId})`} />
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+// Vignette effect
+export const Vignette: React.FC<{
+  children: React.ReactNode;
+  intensity?: number;
+  size?: number;
+}> = ({ children, intensity = 0.3, size = 0.5 }) => {
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {children}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          background: `radial-gradient(ellipse at center, transparent ${size * 100}%, rgba(0, 0, 0, ${intensity}) 100%)`,
+        }}
+      />
+    </div>
+  );
+};
+
+// Cinematic bars (letterbox)
+export const CinematicBars: React.FC<{
+  children: React.ReactNode;
+  ratio?: number;
+}> = ({ children, ratio = 2.35 }) => {
+  const currentRatio = 16 / 9;
+  const barHeight = ratio > currentRatio ? ((1 - (currentRatio / ratio)) / 2) * 100 : 0;
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {children}
+      {barHeight > 0 && (
+        <>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${barHeight}%`, backgroundColor: 'black' }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: `${barHeight}%`, backgroundColor: 'black' }} />
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ColorGrade;

@@ -1,3 +1,7 @@
+// CinematicCaptions.tsx
+// Word-by-word animated captions with multiple styles
+
+import React from 'react';
 import {
   AbsoluteFill,
   interpolate,
@@ -12,7 +16,7 @@ export interface CinematicCaptionsProps {
   words: TranscriptWord[];
   styleId?: string;
   customStyle?: Partial<CaptionStyle['config']>;
-  impactWords?: string[]; // Words to emphasize extra
+  impactWords?: string[];
   maxWordsOnScreen?: number;
 }
 
@@ -230,3 +234,5 @@ export const createCaptionsFromTranscript = (
   words: transcript.words,
   ...options,
 });
+
+export default CinematicCaptions;
