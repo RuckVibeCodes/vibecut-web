@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VibeCut Web
 
-## Getting Started
+VibeCut is a Next.js video-editing workspace with AI-assisted prompts, transcription, b-roll generation, voice tools, and Remotion render exports.
 
-First, run the development server:
+## Getting started
+
+Install dependencies and start the development server:
 
 ```bash
+npm install
+npm run check:env
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment readiness
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the environment checker before deploying or debugging render failures:
 
-## Learn More
+```bash
+npm run check:env
+# or validate a specific file
+npm run check:env -- --file=.env.production
+```
 
-To learn more about Next.js, take a look at the following resources:
+The app can run locally without server credentials. If AWS/Remotion Lambda settings are missing, render jobs fall back to the demo simulation path.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Optional server-side render variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Set these when enabling real Remotion Lambda renders:
+
+| Variable | Purpose |
+| --- | --- |
+| `AWS_ACCESS_KEY_ID` | AWS access key for Remotion Lambda/S3 |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key for Remotion Lambda/S3 |
+| `AWS_REGION` | AWS region, defaults to `us-east-1` |
+| `REMOTION_LAMBDA_FUNCTION` | Lambda function name, defaults to `vibecut-render` |
+| `REMOTION_S3_BUCKET` | S3 bucket for render outputs, defaults to `vibecut-renders` |
+| `REMOTION_SERVE_URL` | Bundled Remotion site URL used by Lambda renders |
+
+### Browser-local provider keys
+
+AI provider keys are configured in the app at `/settings` and stored in browser `localStorage`:
+
+- OpenAI
+- Anthropic
+- ElevenLabs
+- Replicate
+- Deepgram
+- WaveSpeed AI
+
+Do not commit provider keys to the repository. The readiness check warns if provider-key-looking env vars are set because the current app reads them from `/settings` instead.
+
+## Scripts
+
+```bash
+npm run dev              # Start Next.js dev server
+npm run build            # Production build
+npm run start            # Start production server
+npm run lint             # ESLint
+npm run check:env        # Validate deployment/render environment
+npm run remotion:preview # Preview Remotion compositions
+npm run remotion:build   # Bundle Remotion compositions
+npm run remotion:render  # Render the default composition locally
+```
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy the Next.js app with Vercel or another Node-compatible host. Configure the optional Remotion Lambda variables above only when using production Lambda renders.
