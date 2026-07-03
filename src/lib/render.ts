@@ -38,14 +38,22 @@ const RENDER_CONFIG = {
 export interface RenderJob {
   id: string;
   projectId: string;
+  projectName: string;
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
   status: 'queued' | 'rendering' | 'completed' | 'failed';
   progress: number;
+  createdAt: string;
   startedAt?: string;
   completedAt?: string;
   outputUrl?: string;
   error?: string;
   renderId?: string; // Remotion Lambda render ID
+  config: {
+    aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
+    quality: 'draft' | 'standard' | 'high';
+    format: 'mp4' | 'webm' | 'gif';
+    fps: 30 | 60;
+  };
 }
 
 // In-memory job tracking
@@ -93,14 +101,28 @@ export function projectToInputProps(project: Project, aspectRatio: string) {
 // Create a render job
 export function createRenderJob(
   projectId: string,
-  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5'
+  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5',
+  options: {
+    projectName?: string;
+    quality?: 'draft' | 'standard' | 'high';
+    format?: 'mp4' | 'webm' | 'gif';
+    fps?: 30 | 60;
+  } = {}
 ): RenderJob {
   const job: RenderJob = {
     id: `render-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     projectId,
+    projectName: options.projectName || projectId,
     aspectRatio,
     status: 'queued',
     progress: 0,
+    createdAt: new Date().toISOString(),
+    config: {
+      aspectRatio,
+      quality: options.quality || 'standard',
+      format: options.format || 'mp4',
+      fps: options.fps || 30,
+    },
   };
   
   renderJobs.set(job.id, job);
@@ -132,7 +154,23 @@ export function getProjectRenderJobs(projectId: string): RenderJob[] {
 
 // List all jobs
 export function listRenderJobs(): RenderJob[] {
-  return Array.from(renderJobs.values());
+  return Array.from(renderJobs.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+// Remove completed/failed jobs from the in-memory queue
+export function clearFinishedRenderJobs(): number {
+  let removed = 0;
+
+  for (const [jobId, job] of renderJobs.entries()) {
+    if (job.status === 'completed' || job.status === 'failed') {
+      renderJobs.delete(jobId);
+      removed += 1;
+    }
+  }
+
+  return removed;
 }
 
 // Trigger Lambda render (actual implementation)
@@ -141,7 +179,7 @@ export async function triggerLambdaRender(
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:5',
   quality: 'draft' | 'standard' | 'high' = 'standard'
 ): Promise<RenderJob> {
-  const job = createRenderJob(project.id, aspectRatio);
+  const job = createRenderJob(project.id, aspectRatio, { projectName: project.name, quality });
   const inputProps = projectToInputProps(project, aspectRatio);
   const qualitySettings = RENDER_CONFIG.quality[quality];
   const resolution = RENDER_CONFIG.resolution[aspectRatio];
@@ -246,7 +284,7 @@ export async function triggerLambdaRender(
 }
 
 // Simulate render for development/demo
-async function simulateRender(jobId: string, duration: number) {
+export async function simulateRender(jobId: string, duration: number) {
   updateRenderJob(jobId, { status: 'rendering', startedAt: new Date().toISOString() });
   
   // Calculate simulated render time (roughly 2x realtime for standard quality)
@@ -289,14 +327,18 @@ export async function renderAllExports(
   return jobs;
 }
 
-export default {
+const RenderEngine = {
   createRenderJob,
+  clearFinishedRenderJobs,
   updateRenderJob,
   getRenderJob,
   getProjectRenderJobs,
   listRenderJobs,
   triggerLambdaRender,
+  simulateRender,
   renderAllExports,
   projectToInputProps,
   RENDER_CONFIG,
 };
+
+export default RenderEngine;
