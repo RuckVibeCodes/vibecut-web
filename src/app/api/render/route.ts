@@ -92,6 +92,65 @@ export async function POST(request: Request) {
         });
       }
 
+      case 'add': {
+        const {
+          projectId = `manual-${Date.now()}`,
+          projectName = 'Untitled render',
+          aspectRatio = '16:9',
+          quality = 'standard',
+          format = 'mp4',
+          fps = 30,
+          duration = 30,
+        } = params as {
+          projectId?: string;
+          projectName?: string;
+          aspectRatio?: '16:9' | '9:16' | '1:1' | '4:5';
+          quality?: 'draft' | 'standard' | 'high';
+          format?: 'mp4' | 'webm' | 'gif';
+          fps?: 30 | 60;
+          duration?: number;
+        };
+
+        const allowedRatios = ['16:9', '9:16', '1:1', '4:5'];
+        const allowedQualities = ['draft', 'standard', 'high'];
+        const allowedFormats = ['mp4', 'webm', 'gif'];
+
+        if (!allowedRatios.includes(aspectRatio)) {
+          return NextResponse.json({ error: 'Invalid aspect ratio' }, { status: 400 });
+        }
+
+        if (!allowedQualities.includes(quality)) {
+          return NextResponse.json({ error: 'Invalid quality preset' }, { status: 400 });
+        }
+
+        if (!allowedFormats.includes(format)) {
+          return NextResponse.json({ error: 'Invalid export format' }, { status: 400 });
+        }
+
+        const job = RenderEngine.createRenderJob(projectId, aspectRatio, {
+          projectName,
+          quality,
+          format,
+          fps,
+        });
+
+        // Demo/manual queue entries render through the local simulator so the
+        // dashboard buttons are useful even before a project is wired up.
+        RenderEngine.simulateRender(job.id, duration);
+
+        return NextResponse.json({ success: true, job }, { status: 201 });
+      }
+
+      case 'clear-completed': {
+        const removed = RenderEngine.clearFinishedRenderJobs();
+
+        return NextResponse.json({
+          success: true,
+          message: `Cleared ${removed} finished render job(s)`,
+          removed,
+        });
+      }
+
       case 'cancel': {
         const { jobId } = params as { jobId: string };
         
