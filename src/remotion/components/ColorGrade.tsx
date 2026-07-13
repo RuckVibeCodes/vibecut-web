@@ -1,7 +1,7 @@
 // ColorGrade.tsx
 // Apply cinematic color grading via CSS filters
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useId } from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
 
 export type ColorGradePreset =
@@ -326,7 +326,9 @@ export const FilmGrain: React.FC<{
   intensity?: number;
   animated?: boolean;
 }> = ({ children, intensity = 0.1, animated = true }) => {
-  const noiseId = `noise-${Math.random().toString(36).substr(2, 9)}`;
+  const frame = useCurrentFrame();
+  const noiseId = `film-grain-${useId().replace(/:/g, '')}`;
+  const turbulenceSeed = animated ? 42 + (frame % 97) : 42;
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -350,7 +352,7 @@ export const FilmGrain: React.FC<{
                 type="fractalNoise"
                 baseFrequency={animated ? '0.8' : '0.6'}
                 numOctaves="4"
-                seed={animated ? Math.floor(Math.random() * 100) : 42}
+                seed={turbulenceSeed}
                 stitchTiles="stitch"
               />
               <feColorMatrix type="saturate" values="0" />

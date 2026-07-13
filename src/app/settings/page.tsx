@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 
 interface ApiKeys {
@@ -57,36 +57,41 @@ const API_KEY_CONFIG = [
   },
 ];
 
+const DEFAULT_KEYS: ApiKeys = {
+  openai: '',
+  anthropic: '',
+  elevenlabs: '',
+  replicate: '',
+  deepgram: '',
+  wavespeed: '',
+};
+
+function loadStoredKeys(): ApiKeys {
+  if (typeof window === 'undefined') return DEFAULT_KEYS;
+
+  const stored = localStorage.getItem('vibecut-api-keys');
+  if (!stored) return DEFAULT_KEYS;
+
+  try {
+    return { ...DEFAULT_KEYS, ...JSON.parse(stored) };
+  } catch (e) {
+    console.error('Failed to parse stored keys:', e);
+    return DEFAULT_KEYS;
+  }
+}
+
+function loadStoredProvider(): 'openai' | 'anthropic' {
+  if (typeof window === 'undefined') return 'anthropic';
+
+  const provider = localStorage.getItem('vibecut-llm-provider');
+  return provider === 'openai' || provider === 'anthropic' ? provider : 'anthropic';
+}
+
 export default function SettingsPage() {
-  const [keys, setKeys] = useState<ApiKeys>({
-    openai: '',
-    anthropic: '',
-    elevenlabs: '',
-    replicate: '',
-    deepgram: '',
-    wavespeed: '',
-  });
+  const [keys, setKeys] = useState<ApiKeys>(loadStoredKeys);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<'openai' | 'anthropic'>('anthropic');
-
-  // Load keys from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('vibecut-api-keys');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setKeys(parsed);
-      } catch (e) {
-        console.error('Failed to parse stored keys:', e);
-      }
-    }
-    
-    const provider = localStorage.getItem('vibecut-llm-provider') as 'openai' | 'anthropic' | null;
-    if (provider) {
-      setActiveProvider(provider);
-    }
-  }, []);
+  const [activeProvider, setActiveProvider] = useState<'openai' | 'anthropic'>(loadStoredProvider);
 
   const handleSave = () => {
     localStorage.setItem('vibecut-api-keys', JSON.stringify(keys));

@@ -55,6 +55,11 @@ interface CalloutRendererProps {
   durationFrames: number;
 }
 
+const deterministicNoise = (seed: number) => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrames }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -167,8 +172,9 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderGlitch = () => {
-    const glitchOffset = Math.random() > 0.9 ? (Math.random() - 0.5) * 10 : 0;
-    const rgbShift = Math.random() > 0.85;
+    const glitchGate = deterministicNoise(frame + text.length * 17);
+    const glitchOffset = glitchGate > 0.9 ? (deterministicNoise(frame + text.length * 31) - 0.5) * 10 : 0;
+    const rgbShift = deterministicNoise(frame + text.length * 43) > 0.85;
 
     return (
       <div
@@ -321,7 +327,7 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderFire = () => {
-    const flicker = 0.9 + Math.random() * 0.2;
+    const flicker = 0.9 + deterministicNoise(frame + text.length * 59) * 0.2;
 
     return (
       <div
