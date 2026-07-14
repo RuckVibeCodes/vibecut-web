@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { loadApiKeys } from '@/lib/apiKeys';
 
 interface GeneratedClip {
   id: string;
@@ -20,13 +21,7 @@ export function BRollGenerator() {
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
-    const stored = localStorage.getItem('vibecut-api-keys');
-    if (!stored) {
-      alert('Please configure WaveSpeed or Replicate API key in Settings');
-      return;
-    }
-
-    const keys = JSON.parse(stored);
+    const keys = loadApiKeys();
     const apiKey = keys.wavespeed || keys.replicate;
     const provider = keys.wavespeed ? 'wavespeed' : 'replicate';
 

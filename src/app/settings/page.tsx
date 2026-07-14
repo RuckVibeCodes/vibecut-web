@@ -2,15 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-
-interface ApiKeys {
-  openai: string;
-  anthropic: string;
-  elevenlabs: string;
-  replicate: string;
-  deepgram: string;
-  wavespeed: string;
-}
+import {
+  ApiKeys,
+  LlmProvider,
+  loadApiKeys,
+  loadLlmProvider,
+  saveApiKeys,
+  saveLlmProvider,
+} from '@/lib/apiKeys';
 
 const API_KEY_CONFIG = [
   {
@@ -57,45 +56,15 @@ const API_KEY_CONFIG = [
   },
 ];
 
-const DEFAULT_KEYS: ApiKeys = {
-  openai: '',
-  anthropic: '',
-  elevenlabs: '',
-  replicate: '',
-  deepgram: '',
-  wavespeed: '',
-};
-
-function loadStoredKeys(): ApiKeys {
-  if (typeof window === 'undefined') return DEFAULT_KEYS;
-
-  const stored = localStorage.getItem('vibecut-api-keys');
-  if (!stored) return DEFAULT_KEYS;
-
-  try {
-    return { ...DEFAULT_KEYS, ...JSON.parse(stored) };
-  } catch (e) {
-    console.error('Failed to parse stored keys:', e);
-    return DEFAULT_KEYS;
-  }
-}
-
-function loadStoredProvider(): 'openai' | 'anthropic' {
-  if (typeof window === 'undefined') return 'anthropic';
-
-  const provider = localStorage.getItem('vibecut-llm-provider');
-  return provider === 'openai' || provider === 'anthropic' ? provider : 'anthropic';
-}
-
 export default function SettingsPage() {
-  const [keys, setKeys] = useState<ApiKeys>(loadStoredKeys);
+  const [keys, setKeys] = useState<ApiKeys>(() => loadApiKeys());
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<'openai' | 'anthropic'>(loadStoredProvider);
+  const [activeProvider, setActiveProvider] = useState<LlmProvider>(() => loadLlmProvider());
 
   const handleSave = () => {
-    localStorage.setItem('vibecut-api-keys', JSON.stringify(keys));
-    localStorage.setItem('vibecut-llm-provider', activeProvider);
+    saveApiKeys(keys);
+    saveLlmProvider(activeProvider);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
