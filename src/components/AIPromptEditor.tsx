@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { loadApiKeys, loadLlmProvider } from '@/lib/apiKeys';
 
 interface Message {
   id: string;
@@ -37,21 +38,9 @@ export function AIPromptEditor({ onGenerateCode }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Check if API keys are configured
-    const stored = localStorage.getItem('vibecut-api-keys');
-    if (stored) {
-      const keys = JSON.parse(stored);
-      const provider = localStorage.getItem('vibecut-llm-provider') || 'anthropic';
-      if (provider === 'anthropic' && !keys.anthropic) {
-        setApiKeyMissing(true);
-      } else if (provider === 'openai' && !keys.openai) {
-        setApiKeyMissing(true);
-      } else {
-        setApiKeyMissing(false);
-      }
-    } else {
-      setApiKeyMissing(true);
-    }
+    const keys = loadApiKeys();
+    const provider = loadLlmProvider();
+    setApiKeyMissing(provider === 'anthropic' ? !keys.anthropic : !keys.openai);
   }, []);
 
   useEffect(() => {
@@ -74,15 +63,8 @@ export function AIPromptEditor({ onGenerateCode }: Props) {
     setIsLoading(true);
 
     try {
-      // Get API keys and provider from localStorage
-      const stored = localStorage.getItem('vibecut-api-keys');
-      const provider = localStorage.getItem('vibecut-llm-provider') || 'anthropic';
-      
-      if (!stored) {
-        throw new Error('API keys not configured');
-      }
-
-      const keys = JSON.parse(stored);
+      const keys = loadApiKeys();
+      const provider = loadLlmProvider();
       const apiKey = provider === 'anthropic' ? keys.anthropic : keys.openai;
 
       if (!apiKey) {

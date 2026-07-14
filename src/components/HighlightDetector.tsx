@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Transcript } from '@/lib/types';
+import { loadApiKeys } from '@/lib/apiKeys';
 
 interface Highlight {
   id: string;
@@ -34,12 +35,9 @@ export function HighlightDetector({ transcript, onHighlightSelect }: Props) {
       let provider = 'anthropic';
 
       if (useAI) {
-        const stored = localStorage.getItem('vibecut-api-keys');
-        if (stored) {
-          const keys = JSON.parse(stored);
-          apiKey = keys.anthropic || keys.openai || '';
-          provider = keys.anthropic ? 'anthropic' : 'openai';
-        }
+        const keys = loadApiKeys();
+        apiKey = keys.anthropic || keys.openai || '';
+        provider = keys.anthropic ? 'anthropic' : 'openai';
       }
 
       const response = await fetch('/api/highlights', {

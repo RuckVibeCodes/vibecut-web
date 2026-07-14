@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { loadApiKeys } from '@/lib/apiKeys';
 
 interface Voice {
   id: string;
@@ -26,10 +27,7 @@ export function VoiceCloning() {
   }, []);
 
   const loadVoices = async () => {
-    const stored = localStorage.getItem('vibecut-api-keys');
-    if (!stored) return;
-
-    const keys = JSON.parse(stored);
+    const keys = loadApiKeys();
     if (!keys.elevenlabs) return;
 
     try {
@@ -57,13 +55,7 @@ export function VoiceCloning() {
   const handleGenerate = async () => {
     if (!text.trim() || !selectedVoice) return;
 
-    const stored = localStorage.getItem('vibecut-api-keys');
-    if (!stored) {
-      alert('Please configure ElevenLabs API key in Settings');
-      return;
-    }
-
-    const keys = JSON.parse(stored);
+    const keys = loadApiKeys();
     if (!keys.elevenlabs) {
       alert('Please add ElevenLabs API key in Settings');
       return;
@@ -101,13 +93,7 @@ export function VoiceCloning() {
   const handleCloneVoice = async () => {
     if (!cloneName.trim() || cloneFiles.length === 0) return;
 
-    const stored = localStorage.getItem('vibecut-api-keys');
-    if (!stored) {
-      alert('Please configure ElevenLabs API key in Settings');
-      return;
-    }
-
-    const keys = JSON.parse(stored);
+    const keys = loadApiKeys();
     if (!keys.elevenlabs) {
       alert('Please add ElevenLabs API key in Settings');
       return;

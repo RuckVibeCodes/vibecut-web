@@ -6,13 +6,14 @@ import { Player, PlayerRef } from '@remotion/player';
 import { CaptionStylePicker } from '@/components/CaptionStylePicker';
 import { ExportPresets } from '@/components/ExportPresets';
 import { AssetManager } from '@/components/AssetManager';
-import { 
-  AspectRatio, 
-  CaptionStyleId, 
-  Transcript, 
+import {
+  AspectRatio,
+  CaptionStyleId,
+  Transcript,
   ASPECT_RATIOS,
-  CAPTION_STYLES 
+  CAPTION_STYLES
 } from '@/lib/types';
+import { loadApiKeys } from '@/lib/apiKeys';
 
 // Text overlay type
 interface TextOverlay {
@@ -48,12 +49,12 @@ const PreviewComposition: React.FC<{
   videoUrl?: string;
 }> = ({ transcript, captionStyle, textOverlays, currentTime, videoUrl }) => {
   const style = CAPTION_STYLES.find(s => s.id === captionStyle) || CAPTION_STYLES[0];
-  
+
   const getCurrentCaption = () => {
     if (!transcript?.words) return '';
     const wordsPerLine = style.config.wordsPerLine;
     const currentWords: string[] = [];
-    
+
     for (const word of transcript.words) {
       if (word.start <= currentTime && word.end >= currentTime - 2) {
         currentWords.push(word.punctuated_word || word.word);
@@ -80,7 +81,7 @@ const PreviewComposition: React.FC<{
           <span className="text-white/20 text-lg">Preview</span>
         </div>
       )}
-      
+
       {visibleOverlays.map((overlay) => (
         <div
           key={overlay.id}
@@ -105,7 +106,7 @@ const PreviewComposition: React.FC<{
       ))}
 
       {transcript && (
-        <div 
+        <div
           className={`absolute left-0 right-0 px-4 ${
             style.config.position === 'top' ? 'top-8' :
             style.config.position === 'center' ? 'top-1/2 -translate-y-1/2' :
@@ -149,7 +150,7 @@ export default function EditorPage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<unknown[]>([]);
   const [redoStack, setRedoStack] = useState<unknown[]>([]);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const playerRef = useRef<PlayerRef>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -184,30 +185,27 @@ export default function EditorPage() {
       };
       setTimelineClips([clip]);
     };
-    
+
     setIsTranscribing(true);
     try {
-      const stored = localStorage.getItem('vibecut-api-keys');
-      if (stored) {
-        const keys = JSON.parse(stored);
-        const apiKey = keys.deepgram || keys.openai;
-        const provider = keys.deepgram ? 'deepgram' : 'openai';
-        
-        if (apiKey) {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('apiKey', apiKey);
-          formData.append('provider', provider);
+      const keys = loadApiKeys();
+      const apiKey = keys.deepgram || keys.openai;
+      const provider = keys.deepgram ? 'deepgram' : 'openai';
 
-          const response = await fetch('/api/transcribe', {
-            method: 'POST',
-            body: formData,
-          });
+      if (apiKey) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('apiKey', apiKey);
+        formData.append('provider', provider);
 
-          if (response.ok) {
-            const data = await response.json();
-            setTranscript(data.transcript);
-          }
+        const response = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setTranscript(data.transcript);
         }
       }
     } catch (error) {
@@ -231,7 +229,7 @@ export default function EditorPage() {
       endTime: Math.min(currentTime + 3, duration),
     };
     setTextOverlays(prev => [...prev, newOverlay]);
-    
+
     const clip: TimelineClip = {
       id: newOverlay.id,
       type: 'text',
@@ -285,7 +283,7 @@ export default function EditorPage() {
   const getPreviewDimensions = () => {
     const maxHeight = isMobile ? 380 : 480;
     const ratio = ratioConfig.width / ratioConfig.height;
-    
+
     if (ratio > 1) {
       // Landscape
       const width = isMobile ? 320 : 420;
@@ -304,18 +302,18 @@ export default function EditorPage() {
       {/* Top bar */}
       <header className="h-12 bg-black/90 backdrop-blur flex items-center justify-between px-3 shrink-0 pt-safe border-b border-white/5">
         <div className="flex items-center gap-2">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="w-9 h-9 flex items-center justify-center text-white/60 hover:text-white active:scale-95 transition"
           >
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </Link>
-          
+
           {/* Undo/Redo */}
           <div className="flex items-center gap-1 ml-1">
-            <button 
+            <button
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
                 undoStack.length > 0 ? 'text-white/70 hover:bg-white/10 active:scale-95' : 'text-white/20'
               }`}
@@ -325,7 +323,7 @@ export default function EditorPage() {
                 <path d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4"/>
               </svg>
             </button>
-            <button 
+            <button
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${
                 redoStack.length > 0 ? 'text-white/70 hover:bg-white/10 active:scale-95' : 'text-white/20'
               }`}
@@ -363,8 +361,8 @@ export default function EditorPage() {
                 key={opt.ratio}
                 onClick={() => setAspectRatio(opt.ratio)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                  aspectRatio === opt.ratio 
-                    ? 'bg-white text-black' 
+                  aspectRatio === opt.ratio
+                    ? 'bg-white text-black'
                     : 'text-white/70 hover:text-white'
                 }`}
               >
@@ -374,7 +372,7 @@ export default function EditorPage() {
           </div>
 
           {/* Preview frame */}
-          <div 
+          <div
             className="relative bg-gray-900 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
             style={{
               width: previewDims.width,
@@ -383,12 +381,12 @@ export default function EditorPage() {
           >
             {/* Filter overlay */}
             {activeFilter && activeFilter !== 'none' && (
-              <div 
+              <div
                 className="absolute inset-0 z-10 pointer-events-none"
                 style={{
                   background: filters.find(f => f.id === activeFilter)?.color,
-                  filter: ['bw', 'vivid'].includes(activeFilter) 
-                    ? filters.find(f => f.id === activeFilter)?.color 
+                  filter: ['bw', 'vivid'].includes(activeFilter)
+                    ? filters.find(f => f.id === activeFilter)?.color
                     : undefined,
                 }}
               />
@@ -412,7 +410,7 @@ export default function EditorPage() {
                 style={{ width: '100%', height: '100%' }}
               />
             ) : (
-              <div 
+              <div
                 className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 active:bg-white/10 transition"
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -468,7 +466,7 @@ export default function EditorPage() {
         <div className="bg-gradient-to-t from-black via-black/95 to-transparent pt-4">
           {/* Playback controls */}
           <div className="flex items-center justify-center gap-6 mb-3">
-            <button 
+            <button
               className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-white active:scale-95 transition"
               onClick={() => setCurrentTime(Math.max(0, currentTime - 5))}
             >
@@ -476,8 +474,8 @@ export default function EditorPage() {
                 <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
               </svg>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => setIsPlaying(!isPlaying)}
               className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-black shadow-xl hover:scale-105 active:scale-95 transition"
             >
@@ -491,8 +489,8 @@ export default function EditorPage() {
                 </svg>
               )}
             </button>
-            
-            <button 
+
+            <button
               className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-white active:scale-95 transition"
               onClick={() => setCurrentTime(Math.min(duration, currentTime + 5))}
             >
@@ -519,7 +517,7 @@ export default function EditorPage() {
           </div>
 
           {/* Timeline scrubber */}
-          <div 
+          <div
             ref={timelineRef}
             className="mx-4 mb-2 relative cursor-pointer touch-none"
             onClick={(e) => handleTimelineInteraction(e.clientX)}
@@ -548,7 +546,7 @@ export default function EditorPage() {
               ))}
 
               {/* Playhead */}
-              <div 
+              <div
                 className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-10"
                 style={{ left: `${(currentTime / duration) * 100}%` }}
               >
@@ -606,11 +604,11 @@ export default function EditorPage() {
       {activePanel && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/40 z-40"
             onClick={() => setActivePanel(null)}
           />
-          
+
           {/* Panel */}
           <div className="fixed inset-x-0 bottom-0 bg-gray-900 rounded-t-3xl z-50 max-h-[60vh] overflow-hidden animate-slide-up">
             {/* Handle */}
@@ -716,15 +714,15 @@ export default function EditorPage() {
                             : 'opacity-60 hover:opacity-80'
                         }`}
                       >
-                        <div 
+                        <div
                           className={`w-20 h-20 rounded-xl mb-2 ${
                             (activeFilter === filter.id || (!activeFilter && filter.id === 'none'))
                               ? 'ring-2 ring-pink-500'
                               : ''
                           }`}
                           style={{
-                            background: filter.id === 'none' 
-                              ? 'linear-gradient(135deg, #374151, #1f2937)' 
+                            background: filter.id === 'none'
+                              ? 'linear-gradient(135deg, #374151, #1f2937)'
                               : `linear-gradient(135deg, #374151, #1f2937)`,
                           }}
                         />
