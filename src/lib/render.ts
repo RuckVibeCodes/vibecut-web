@@ -3,6 +3,25 @@
 
 import { Project } from './types/project';
 
+type RenderTimelineKey =
+  | 'cameraKeyframes'
+  | 'brollClips'
+  | 'textOverlays'
+  | 'soundEffects'
+  | 'musicTrack';
+
+export interface RenderReadinessIssue {
+  severity: 'error' | 'warning';
+  field: 'sourceVideoUrl' | 'duration' | 'transcript' | RenderTimelineKey;
+  message: string;
+}
+
+export interface RenderReadinessResult {
+  ready: boolean;
+  errors: RenderReadinessIssue[];
+  warnings: RenderReadinessIssue[];
+}
+
 // Environment-based config
 const RENDER_CONFIG = {
   // AWS Lambda config (set via env vars)
@@ -50,6 +69,115 @@ export interface RenderJob {
 
 // In-memory job tracking
 const renderJobs: Map<string, RenderJob> = new Map();
+
+function addIssue(
+  issues: RenderReadinessIssue[],
+  severity: RenderReadinessIssue['severity'],
+  field: RenderReadinessIssue['field'],
+  message: string
+) {
+  issues.push({ severity, field, message });
+}
+
+function isFiniteNonNegative(value: number) {
+  return Number.isFinite(value) && value >= 0;
+}
+
+function isInsideProjectDuration(start: number, end: number, duration: number) {
+  return isFiniteNonNegative(start) && Number.isFinite(end) && end > start && end <= duration;
+}
+
+// Validate a project before handing it to Remotion/Lambda. This catches the
+// most common export failures early (missing source, zero duration, and timeline
+// assets that extend beyond the composition length) so the UI can block or warn
+// before creating a paid/slow render job.
+export function validateProjectForRender(project: Project): RenderReadinessResult {
+  const issues: RenderReadinessIssue[] = [];
+
+  if (!project.sourceVideoUrl && !project.sourceVideoFile) {
+    addIssue(issues, 'error', 'sourceVideoUrl', 'Add a source video before rendering.');
+  }
+
+  if (!Number.isFinite(project.duration) || project.duration <= 0) {
+    addIssue(issues, 'error', 'duration', 'Project duration must be greater than 0 seconds.');
+  }
+
+  const duration = Number.isFinite(project.duration) ? project.duration : 0;
+
+  if (!project.transcript?.words?.length) {
+    addIssue(issues, 'warning', 'transcript', 'No word-level transcript found; captions will be unavailable.');
+  } else {
+    project.transcript.words.forEach((word, index) => {
+      if (!isInsideProjectDuration(word.start, word.end, duration)) {
+        addIssue(
+          issues,
+          'warning',
+          'transcript',
+          `Transcript word ${index + 1} is outside the project duration.`
+        );
+      }
+    });
+  }
+
+  project.cameraKeyframes.forEach((keyframe, index) => {
+    if (!isFiniteNonNegative(keyframe.time) || keyframe.time > duration) {
+      addIssue(issues, 'warning', 'cameraKeyframes', `Camera keyframe ${index + 1} is outside the project duration.`);
+    }
+  });
+
+  project.brollClips.forEach((clip) => {
+    const end = clip.startTime + clip.duration;
+    if (!clip.url) {
+      addIssue(issues, 'warning', 'brollClips', `B-roll clip ${clip.id} is missing a media URL.`);
+    }
+    if (!isInsideProjectDuration(clip.startTime, end, duration)) {
+      addIssue(issues, 'warning', 'brollClips', `B-roll clip ${clip.id} extends outside the project duration.`);
+    }
+  });
+
+  project.textOverlays.forEach((overlay) => {
+    if (!overlay.text.trim()) {
+      addIssue(issues, 'warning', 'textOverlays', `Text overlay ${overlay.id} is empty.`);
+    }
+    if (!isInsideProjectDuration(overlay.startTime, overlay.endTime, duration)) {
+      addIssue(issues, 'warning', 'textOverlays', `Text overlay ${overlay.id} extends outside the project duration.`);
+    }
+  });
+
+  project.soundEffects.forEach((sound) => {
+    if (!sound.url) {
+      addIssue(issues, 'warning', 'soundEffects', `Sound effect ${sound.id} is missing an audio URL.`);
+    }
+    if (!isFiniteNonNegative(sound.startTime) || sound.startTime > duration) {
+      addIssue(issues, 'warning', 'soundEffects', `Sound effect ${sound.id} starts outside the project duration.`);
+    }
+    if (sound.volume < 0 || sound.volume > 1) {
+      addIssue(issues, 'warning', 'soundEffects', `Sound effect ${sound.id} volume should be between 0 and 1.`);
+    }
+  });
+
+  if (project.musicTrack) {
+    if (!project.musicTrack.url) {
+      addIssue(issues, 'warning', 'musicTrack', `Music track ${project.musicTrack.id} is missing an audio URL.`);
+    }
+    const musicEnd = project.musicTrack.endTime ?? duration;
+    if (!isInsideProjectDuration(project.musicTrack.startTime, musicEnd, duration)) {
+      addIssue(issues, 'warning', 'musicTrack', `Music track ${project.musicTrack.id} extends outside the project duration.`);
+    }
+    if (project.musicTrack.volume < 0 || project.musicTrack.volume > 1) {
+      addIssue(issues, 'warning', 'musicTrack', `Music track ${project.musicTrack.id} volume should be between 0 and 1.`);
+    }
+  }
+
+  const errors = issues.filter((issue) => issue.severity === 'error');
+  const warnings = issues.filter((issue) => issue.severity === 'warning');
+
+  return {
+    ready: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
 
 // Convert project state to Remotion inputProps
 export function projectToInputProps(project: Project, aspectRatio: string) {
@@ -142,6 +270,14 @@ export async function triggerLambdaRender(
   quality: 'draft' | 'standard' | 'high' = 'standard'
 ): Promise<RenderJob> {
   const job = createRenderJob(project.id, aspectRatio);
+  const readiness = validateProjectForRender(project);
+
+  if (!readiness.ready) {
+    const error = readiness.errors.map((issue) => issue.message).join(' ');
+    updateRenderJob(job.id, { status: 'failed', error });
+    return job;
+  }
+
   const inputProps = projectToInputProps(project, aspectRatio);
   const qualitySettings = RENDER_CONFIG.quality[quality];
   const resolution = RENDER_CONFIG.resolution[aspectRatio];
@@ -298,5 +434,6 @@ export default {
   triggerLambdaRender,
   renderAllExports,
   projectToInputProps,
+  validateProjectForRender,
   RENDER_CONFIG,
 };
