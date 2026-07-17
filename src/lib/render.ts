@@ -35,17 +35,29 @@ const RENDER_CONFIG = {
   } as Record<string, { width: number; height: number }>,
 };
 
+export type RenderAspectRatio = '16:9' | '9:16' | '1:1' | '4:5';
+export type RenderQuality = 'draft' | 'standard' | 'high';
+export type RenderFormat = 'mp4' | 'webm' | 'gif';
+
 export interface RenderJob {
   id: string;
   projectId: string;
-  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
+  projectName: string;
+  aspectRatio: RenderAspectRatio;
   status: 'queued' | 'rendering' | 'completed' | 'failed';
   progress: number;
+  createdAt: string;
   startedAt?: string;
   completedAt?: string;
   outputUrl?: string;
   error?: string;
   renderId?: string; // Remotion Lambda render ID
+  config: {
+    aspectRatio: RenderAspectRatio;
+    quality: RenderQuality;
+    format: RenderFormat;
+    fps: number;
+  };
 }
 
 // In-memory job tracking
@@ -93,14 +105,27 @@ export function projectToInputProps(project: Project, aspectRatio: string) {
 // Create a render job
 export function createRenderJob(
   projectId: string,
-  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5'
+  aspectRatio: RenderAspectRatio,
+  options: {
+    projectName?: string;
+    quality?: RenderQuality;
+    format?: RenderFormat;
+  } = {}
 ): RenderJob {
   const job: RenderJob = {
     id: `render-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     projectId,
+    projectName: options.projectName || projectId,
     aspectRatio,
     status: 'queued',
     progress: 0,
+    createdAt: new Date().toISOString(),
+    config: {
+      aspectRatio,
+      quality: options.quality || 'standard',
+      format: options.format || 'mp4',
+      fps: RENDER_CONFIG.fps,
+    },
   };
   
   renderJobs.set(job.id, job);
@@ -132,16 +157,55 @@ export function getProjectRenderJobs(projectId: string): RenderJob[] {
 
 // List all jobs
 export function listRenderJobs(): RenderJob[] {
-  return Array.from(renderJobs.values());
+  return Array.from(renderJobs.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+// Remove completed/failed jobs from the in-memory queue
+export function clearFinishedRenderJobs(): number {
+  let removed = 0;
+
+  for (const [jobId, job] of renderJobs.entries()) {
+    if (job.status === 'completed' || job.status === 'failed') {
+      renderJobs.delete(jobId);
+      removed += 1;
+    }
+  }
+
+  return removed;
+}
+
+// Queue a demo/manual render job from the standalone RenderQueue panel
+export function queueManualRenderJob({
+  projectId,
+  projectName,
+  aspectRatio,
+  quality = 'standard',
+  format = 'mp4',
+}: {
+  projectId: string;
+  projectName: string;
+  aspectRatio: RenderAspectRatio;
+  quality?: RenderQuality;
+  format?: RenderFormat;
+}): RenderJob {
+  const job = createRenderJob(projectId, aspectRatio, { projectName, quality, format });
+  simulateRender(job.id, 30);
+  return job;
 }
 
 // Trigger Lambda render (actual implementation)
 export async function triggerLambdaRender(
   project: Project,
-  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5',
-  quality: 'draft' | 'standard' | 'high' = 'standard'
+  aspectRatio: RenderAspectRatio,
+  quality: RenderQuality = 'standard'
 ): Promise<RenderJob> {
-  const job = createRenderJob(project.id, aspectRatio);
+  const job = createRenderJob(project.id, aspectRatio, {
+    projectName: project.name,
+    quality,
+    format: 'mp4',
+  });
   const inputProps = projectToInputProps(project, aspectRatio);
   const qualitySettings = RENDER_CONFIG.quality[quality];
   const resolution = RENDER_CONFIG.resolution[aspectRatio];
@@ -275,7 +339,7 @@ async function simulateRender(jobId: string, duration: number) {
 // Render all queued exports for a project
 export async function renderAllExports(
   project: Project,
-  quality: 'draft' | 'standard' | 'high' = 'standard'
+  quality: RenderQuality = 'standard'
 ): Promise<RenderJob[]> {
   const jobs: RenderJob[] = [];
   
@@ -295,6 +359,8 @@ export default {
   getRenderJob,
   getProjectRenderJobs,
   listRenderJobs,
+  clearFinishedRenderJobs,
+  queueManualRenderJob,
   triggerLambdaRender,
   renderAllExports,
   projectToInputProps,
