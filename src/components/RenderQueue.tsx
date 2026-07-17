@@ -29,6 +29,7 @@ export function RenderQueue({ onAddJob }: Props) {
   const [jobs, setJobs] = useState<RenderJob[]>([]);
   const [stats, setStats] = useState({ total: 0, queued: 0, rendering: 0, completed: 0, failed: 0 });
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newJobConfig, setNewJobConfig] = useState({
     projectName: 'My Video',
@@ -45,6 +46,7 @@ export function RenderQueue({ onAddJob }: Props) {
         const data = await response.json();
         setJobs(data.jobs || []);
         setStats(data.stats || { total: 0, queued: 0, rendering: 0, completed: 0, failed: 0 });
+        setErrorMessage(null);
       }
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
@@ -78,13 +80,19 @@ export function RenderQueue({ onAddJob }: Props) {
         }),
       });
 
-      if (response.ok) {
-        setShowAddForm(false);
-        fetchJobs();
-        onAddJob?.(newJobConfig);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add job');
       }
+
+      setErrorMessage(null);
+      setShowAddForm(false);
+      fetchJobs();
+      onAddJob?.(newJobConfig);
     } catch (error) {
       console.error('Failed to add job:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to add job');
     } finally {
       setIsLoading(false);
     }
@@ -92,27 +100,44 @@ export function RenderQueue({ onAddJob }: Props) {
 
   const cancelJob = async (jobId: string) => {
     try {
-      await fetch('/api/render', {
+      const response = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel', jobId }),
       });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel job');
+      }
+
+      setErrorMessage(null);
       fetchJobs();
     } catch (error) {
       console.error('Failed to cancel job:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to cancel job');
     }
   };
 
   const clearCompleted = async () => {
     try {
-      await fetch('/api/render', {
+      const response = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'clear-completed' }),
       });
-      fetchJobs();
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to clear jobs');
+      }
+
+      setErrorMessage(null);
+      setJobs(data.jobs || []);
+      setStats(data.stats || { total: 0, queued: 0, rendering: 0, completed: 0, failed: 0 });
     } catch (error) {
       console.error('Failed to clear jobs:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to clear jobs');
     }
   };
 
@@ -151,6 +176,12 @@ export function RenderQueue({ onAddJob }: Props) {
         </button>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-2">
         {[
@@ -188,6 +219,7 @@ export function RenderQueue({ onAddJob }: Props) {
               <option value="16:9">16:9</option>
               <option value="9:16">9:16</option>
               <option value="1:1">1:1</option>
+              <option value="4:5">4:5</option>
             </select>
             
             <select

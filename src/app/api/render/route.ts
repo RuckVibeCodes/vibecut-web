@@ -3,7 +3,21 @@
 
 import { NextResponse } from 'next/server';
 import ProjectStore from '@/lib/projectStore';
-import RenderEngine from '@/lib/render';
+import RenderEngine, { RenderAspectRatio, RenderFormat, RenderJob, RenderQuality } from '@/lib/render';
+
+const VALID_ASPECT_RATIOS = new Set<RenderAspectRatio>(['16:9', '9:16', '1:1', '4:5']);
+const VALID_QUALITIES = new Set<RenderQuality>(['draft', 'standard', 'high']);
+const VALID_FORMATS = new Set<RenderFormat>(['mp4', 'webm', 'gif']);
+
+function getStats(jobs: RenderJob[]) {
+  return {
+    total: jobs.length,
+    queued: jobs.filter(j => j.status === 'queued').length,
+    rendering: jobs.filter(j => j.status === 'rendering').length,
+    completed: jobs.filter(j => j.status === 'completed').length,
+    failed: jobs.filter(j => j.status === 'failed').length,
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -62,6 +76,50 @@ export async function POST(request: Request) {
         });
       }
 
+      case 'add': {
+        const {
+          projectId = `manual-${Date.now()}`,
+          projectName = 'Untitled video',
+          aspectRatio = '16:9',
+          quality = 'standard',
+          format = 'mp4',
+        } = params as {
+          projectId?: string;
+          projectName?: string;
+          aspectRatio?: string;
+          quality?: string;
+          format?: string;
+        };
+
+        const cleanProjectName = projectName.trim();
+
+        if (!cleanProjectName) {
+          return NextResponse.json({ error: 'Project name required' }, { status: 400 });
+        }
+
+        if (!VALID_ASPECT_RATIOS.has(aspectRatio as RenderAspectRatio)) {
+          return NextResponse.json({ error: 'Invalid aspect ratio' }, { status: 400 });
+        }
+
+        if (!VALID_QUALITIES.has(quality as RenderQuality)) {
+          return NextResponse.json({ error: 'Invalid quality' }, { status: 400 });
+        }
+
+        if (!VALID_FORMATS.has(format as RenderFormat)) {
+          return NextResponse.json({ error: 'Invalid format' }, { status: 400 });
+        }
+
+        const job = RenderEngine.queueManualRenderJob({
+          projectId,
+          projectName: cleanProjectName,
+          aspectRatio: aspectRatio as RenderAspectRatio,
+          quality: quality as RenderQuality,
+          format: format as RenderFormat,
+        });
+
+        return NextResponse.json({ success: true, job });
+      }
+
       case 'status': {
         const { jobId, projectId } = params as { jobId?: string; projectId?: string };
 
@@ -75,20 +133,26 @@ export async function POST(request: Request) {
 
         if (projectId) {
           const jobs = RenderEngine.getProjectRenderJobs(projectId);
-          return NextResponse.json({ success: true, jobs });
+          return NextResponse.json({ success: true, jobs, stats: getStats(jobs) });
         }
 
         const jobs = RenderEngine.listRenderJobs();
         return NextResponse.json({ 
           success: true, 
           jobs,
-          stats: {
-            total: jobs.length,
-            queued: jobs.filter(j => j.status === 'queued').length,
-            rendering: jobs.filter(j => j.status === 'rendering').length,
-            completed: jobs.filter(j => j.status === 'completed').length,
-            failed: jobs.filter(j => j.status === 'failed').length,
-          },
+          stats: getStats(jobs),
+        });
+      }
+
+      case 'clear-completed': {
+        const removed = RenderEngine.clearFinishedRenderJobs();
+        const jobs = RenderEngine.listRenderJobs();
+
+        return NextResponse.json({
+          success: true,
+          removed,
+          jobs,
+          stats: getStats(jobs),
         });
       }
 
@@ -153,12 +217,6 @@ export async function GET(request: Request) {
   return NextResponse.json({ 
     success: true, 
     jobs,
-    stats: {
-      total: jobs.length,
-      queued: jobs.filter(j => j.status === 'queued').length,
-      rendering: jobs.filter(j => j.status === 'rendering').length,
-      completed: jobs.filter(j => j.status === 'completed').length,
-      failed: jobs.filter(j => j.status === 'failed').length,
-    },
+    stats: getStats(jobs),
   });
 }
