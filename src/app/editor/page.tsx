@@ -650,7 +650,12 @@ export default function EditorPage() {
               )}
 
               {activePanel === 'export' && (
-                <ExportPresets selected={aspectRatio} onSelect={setAspectRatio} />
+                <ExportPresets
+                  selected={aspectRatio}
+                  onSelect={setAspectRatio}
+                  durationSeconds={duration}
+                  sourceFileSizeBytes={uploadedFile?.size}
+                />
               )}
 
               {activePanel === 'canvas' && (
