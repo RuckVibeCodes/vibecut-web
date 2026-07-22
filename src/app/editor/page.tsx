@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Player, PlayerRef } from '@remotion/player';
 import { CaptionStylePicker } from '@/components/CaptionStylePicker';
 import { ExportPresets } from '@/components/ExportPresets';
+import { ExportReadinessChecklist } from '@/components/ExportReadinessChecklist';
 import { AssetManager } from '@/components/AssetManager';
 import { 
   AspectRatio, 
@@ -650,7 +651,16 @@ export default function EditorPage() {
               )}
 
               {activePanel === 'export' && (
-                <ExportPresets selected={aspectRatio} onSelect={setAspectRatio} />
+                <div className="space-y-4">
+                  <ExportReadinessChecklist
+                    hasVideo={Boolean(videoUrl)}
+                    hasTranscript={Boolean(transcript)}
+                    textOverlayCount={textOverlays.length}
+                    duration={duration}
+                    selectedAspectRatio={aspectRatio}
+                  />
+                  <ExportPresets selected={aspectRatio} onSelect={setAspectRatio} />
+                </div>
               )}
 
               {activePanel === 'canvas' && (
