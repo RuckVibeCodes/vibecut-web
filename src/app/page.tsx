@@ -6,6 +6,36 @@ import { Player } from '@remotion/player';
 import { DemoVideo } from '@/components/DemoVideo';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
 
+const TEMPLATE_LIBRARY = [
+  {
+    emoji: '🎙️',
+    title: 'Talking Head',
+    description: 'Perfect for YouTube videos, tutorials, and vlogs',
+    outcome: 'Polished authority clip with captions, jump cuts, and b-roll prompts.',
+    runtime: '45–90 sec',
+    ratio: '16:9 + 9:16',
+    tags: ['Captions', 'B-Roll', 'Intro/Outro'],
+  },
+  {
+    emoji: '🖥️',
+    title: 'Product Demo',
+    description: 'Showcase your app or product with screen recordings',
+    outcome: 'Feature walkthrough with zoom beats, lower thirds, and voiceover notes.',
+    runtime: '60–120 sec',
+    ratio: '16:9',
+    tags: ['Screen Capture', 'Voiceover', 'Zoom Effects'],
+  },
+  {
+    emoji: '📱',
+    title: 'Short Form',
+    description: 'Optimized for TikTok, Reels, and Shorts',
+    outcome: 'Hook-first vertical edit with fast captions and platform-safe framing.',
+    runtime: '15–45 sec',
+    ratio: '9:16',
+    tags: ['9:16 Ratio', 'Fast Cuts', 'Trending Captions'],
+  },
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'create' | 'templates'>('home');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
@@ -294,24 +324,34 @@ export default function Home() {
       {/* Templates Tab */}
       {activeTab === 'templates' && (
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-20">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6 sm:mb-8">Video Templates</h2>
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-8 sm:mb-10">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-pink-300 mb-3">Template library</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">Start from a proven edit recipe</h2>
+              <p className="text-white/60 max-w-2xl text-sm sm:text-base">
+                Pick the closest launch format, then open the editor with a clear shot plan,
+                aspect ratio target, and post-production checklist in mind.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+              {[
+                { label: 'Formats', value: TEMPLATE_LIBRARY.length },
+                { label: 'Ratios', value: '3+' },
+                { label: 'Avg setup', value: '<2m' },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-white/10 rounded-2xl px-3 py-3 sm:px-4 sm:py-4 min-w-20">
+                  <div className="text-lg sm:text-2xl font-bold text-white">{stat.value}</div>
+                  <div className="text-[10px] sm:text-xs text-white/50">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
           
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <TemplateCard
-              title="Talking Head"
-              description="Perfect for YouTube videos, tutorials, and vlogs"
-              tags={['Captions', 'B-Roll', 'Intro/Outro']}
-            />
-            <TemplateCard
-              title="Product Demo"
-              description="Showcase your app or product with screen recordings"
-              tags={['Screen Capture', 'Voiceover', 'Zoom Effects']}
-            />
-            <TemplateCard
-              title="Short Form"
-              description="Optimized for TikTok, Reels, and Shorts"
-              tags={['9:16 Ratio', 'Fast Cuts', 'Trending Captions']}
-            />
+            {TEMPLATE_LIBRARY.map((template) => (
+              <TemplateCard key={template.title} {...template} />
+            ))}
           </div>
         </main>
       )}
@@ -348,14 +388,44 @@ function WorkflowStep({ number, title, description }: { number: number; title: s
   );
 }
 
-function TemplateCard({ title, description, tags }: { title: string; description: string; tags: string[] }) {
+function TemplateCard({
+  emoji,
+  title,
+  description,
+  outcome,
+  runtime,
+  ratio,
+  tags,
+}: {
+  emoji: string;
+  title: string;
+  description: string;
+  outcome: string;
+  runtime: string;
+  ratio: string;
+  tags: string[];
+}) {
   return (
-    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 hover:bg-white/15 active:scale-[0.98] transition cursor-pointer">
-      <div className="aspect-video bg-black/30 rounded-xl mb-3 sm:mb-4 flex items-center justify-center">
-        <span className="text-3xl sm:text-4xl">🎬</span>
+    <div className="group bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 hover:bg-white/15 active:scale-[0.98] transition cursor-pointer border border-white/10">
+      <div className="aspect-video bg-gradient-to-br from-black/40 to-white/10 rounded-xl mb-3 sm:mb-4 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-x-4 bottom-4 h-2 rounded-full bg-white/10">
+          <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-indigo-400 to-pink-400" />
+        </div>
+        <span className="text-3xl sm:text-4xl group-hover:scale-110 transition">{emoji}</span>
       </div>
       <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2">{title}</h3>
       <p className="text-white/60 text-xs sm:text-sm mb-3 sm:mb-4">{description}</p>
+      <p className="text-white/80 text-xs sm:text-sm mb-4 leading-relaxed">{outcome}</p>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="bg-black/20 rounded-lg px-3 py-2">
+          <div className="text-[10px] uppercase tracking-wide text-white/40">Runtime</div>
+          <div className="text-xs sm:text-sm font-semibold text-white">{runtime}</div>
+        </div>
+        <div className="bg-black/20 rounded-lg px-3 py-2">
+          <div className="text-[10px] uppercase tracking-wide text-white/40">Ratio</div>
+          <div className="text-xs sm:text-sm font-semibold text-white">{ratio}</div>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {tags.map((tag) => (
           <span key={tag} className="px-2 py-1 bg-white/10 rounded text-[10px] sm:text-xs text-white/70">
@@ -363,6 +433,12 @@ function TemplateCard({ title, description, tags }: { title: string; description
           </span>
         ))}
       </div>
+      <Link
+        href="/editor"
+        className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-indigo-900 transition hover:bg-white/90"
+      >
+        Use this template
+      </Link>
     </div>
   );
 }
