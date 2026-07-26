@@ -89,14 +89,32 @@ interface CommandRequest {
   params?: Record<string, unknown>;
 }
 
+const VALID_ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1', '4:5']);
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function badRequest(error: string) {
+  return NextResponse.json({ error }, { status: 400 });
+}
+
 export async function POST(request: Request) {
   try {
     const body: CommandRequest = await request.json();
     const { command, projectId, params = {} } = body;
 
+    if (!isNonEmptyString(command)) {
+      return badRequest('Command is required');
+    }
+
     // Commands that don't need a project
     if (command === 'create') {
-      const name = (params.name as string) || `Project ${Date.now()}`;
+      const name = isNonEmptyString(params.name) ? params.name.trim() : `Project ${Date.now()}`;
       const project = ProjectStore.create(name);
       return NextResponse.json({
         success: true,
@@ -129,10 +147,7 @@ export async function POST(request: Request) {
 
     // Commands that need a project
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Project ID required for this command' },
-        { status: 400 }
-      );
+      return badRequest('Project ID required for this command');
     }
 
     const project = ProjectStore.get(projectId);
@@ -150,16 +165,46 @@ export async function POST(request: Request) {
 
       case 'set-source': {
         const { url, duration } = params as { url: string; duration: number };
-        const updated = ProjectStore.setSourceVideo(projectId, url, duration);
+
+        if (!isNonEmptyString(url)) {
+          return badRequest('Source video URL is required');
+        }
+
+        const safeDuration = asFiniteNumber(duration);
+        if (safeDuration === null || safeDuration <= 0) {
+          return badRequest('Source video duration must be a positive number');
+        }
+
+        const updated = ProjectStore.setSourceVideo(projectId, url.trim(), safeDuration);
         return NextResponse.json({
           success: true,
-          message: `Source video set (${duration}s)`,
+          message: `Source video set (${safeDuration}s)`,
           project: updated,
         });
       }
 
       case 'set-transcript': {
         const { transcript } = params as { transcript: { text: string; words: Array<{ word: string; start: number; end: number; confidence: number }> } };
+
+        if (!transcript || !isNonEmptyString(transcript.text) || !Array.isArray(transcript.words)) {
+          return badRequest('Transcript with text and words is required');
+        }
+
+        if (transcript.words.length === 0) {
+          return badRequest('Transcript must include at least one word');
+        }
+
+        const invalidWord = transcript.words.find(
+          (word) =>
+            !isNonEmptyString(word.word) ||
+            asFiniteNumber(word.start) === null ||
+            asFiniteNumber(word.end) === null ||
+            asFiniteNumber(word.confidence) === null
+        );
+        if (invalidWord) {
+          return badRequest('Each transcript word needs word, start, end, and confidence');
+        }
+
         const updated = ProjectStore.setTranscript(projectId, {
           ...transcript,
           duration: project.duration,
@@ -215,19 +260,37 @@ export async function POST(request: Request) {
 
       case 'add-camera-keyframe': {
         const { time, scale = 1, x = 0, y = 0, easing = 'ease-in-out' } = params as Partial<CameraKeyframe> & { time: number };
+
+        const safeTime = asFiniteNumber(time);
+        const safeScale = asFiniteNumber(scale);
+        const safeX = asFiniteNumber(x);
+        const safeY = asFiniteNumber(y);
+
+        if (safeTime === null || safeTime < 0) {
+          return badRequest('Camera keyframe time must be a non-negative number');
+        }
+
+        if (safeScale === null || safeScale <= 0 || safeX === null || safeY === null) {
+          return badRequest('Camera keyframe scale, x, and y must be valid numbers');
+        }
         
-        const keyframe: CameraKeyframe = { time, scale, x, y, easing: easing as CameraKeyframe['easing'] };
+        const keyframe: CameraKeyframe = { time: safeTime, scale: safeScale, x: safeX, y: safeY, easing: easing as CameraKeyframe['easing'] };
         const updated = ProjectStore.addCameraKeyframe(projectId, keyframe);
         
         return NextResponse.json({
           success: true,
-          message: `Camera keyframe added at ${time}s (scale: ${scale}, position: ${x},${y})`,
+          message: `Camera keyframe added at ${safeTime}s (scale: ${safeScale}, position: ${safeX},${safeY})`,
           project: updated,
         });
       }
 
       case 'set-camera-keyframes': {
         const { keyframes } = params as { keyframes: CameraKeyframe[] };
+
+        if (!Array.isArray(keyframes)) {
+          return badRequest('Keyframes array is required');
+        }
+
         const updated = ProjectStore.setCameraKeyframes(projectId, keyframes);
         
         return NextResponse.json({
@@ -250,7 +313,11 @@ export async function POST(request: Request) {
         } = params as Partial<BRollClip> & { startTime: number };
 
         if (!url && !prompt) {
-          return NextResponse.json({ error: 'URL or prompt required' }, { status: 400 });
+          return badRequest('URL or prompt required');
+        }
+
+        if (asFiniteNumber(startTime) === null || startTime < 0 || asFiniteNumber(duration) === null || duration <= 0) {
+          return badRequest('B-roll startTime must be non-negative and duration must be positive');
         }
 
         const clip: BRollClip = {
@@ -276,6 +343,9 @@ export async function POST(request: Request) {
 
       case 'remove-broll': {
         const { clipId } = params as { clipId: string };
+        if (!isNonEmptyString(clipId)) {
+          return badRequest('Clip ID is required');
+        }
         const updated = ProjectStore.removeBRoll(projectId, clipId);
         return NextResponse.json({
           success: true,
@@ -300,6 +370,14 @@ export async function POST(request: Request) {
           position?: { x: number; y: number };
           style?: Partial<TextOverlay['style']>;
         };
+
+        if (!isNonEmptyString(text)) {
+          return badRequest('Text overlay content is required');
+        }
+
+        if (asFiniteNumber(startTime) === null || startTime < 0 || (endTime !== undefined && (asFiniteNumber(endTime) === null || endTime <= startTime))) {
+          return badRequest('Text overlay needs a non-negative startTime and optional endTime after startTime');
+        }
 
         const overlay: TextOverlay = {
           id: `text-${Date.now()}`,
@@ -328,6 +406,9 @@ export async function POST(request: Request) {
 
       case 'remove-text': {
         const { overlayId } = params as { overlayId: string };
+        if (!isNonEmptyString(overlayId)) {
+          return badRequest('Overlay ID is required');
+        }
         const updated = ProjectStore.removeTextOverlay(projectId, overlayId);
         return NextResponse.json({
           success: true,
@@ -350,6 +431,14 @@ export async function POST(request: Request) {
           volume?: number;
           category?: SoundEffect['category'];
         };
+
+        if (!isNonEmptyString(name) || !isNonEmptyString(url)) {
+          return badRequest('Sound effect name and URL are required');
+        }
+
+        if (asFiniteNumber(startTime) === null || startTime < 0 || asFiniteNumber(volume) === null || volume < 0 || volume > 1) {
+          return badRequest('Sound effect startTime must be non-negative and volume must be between 0 and 1');
+        }
 
         const sound: SoundEffect = {
           id: `sound-${Date.now()}`,
@@ -379,6 +468,21 @@ export async function POST(request: Request) {
           fadeIn = 2,
           fadeOut = 3,
         } = params as Partial<MusicTrack> & { name: string; url: string };
+
+        if (!isNonEmptyString(name) || !isNonEmptyString(url)) {
+          return badRequest('Music track name and URL are required');
+        }
+
+        if (
+          asFiniteNumber(startTime) === null ||
+          startTime < 0 ||
+          (endTime !== undefined && (asFiniteNumber(endTime) === null || endTime <= startTime)) ||
+          asFiniteNumber(volume) === null ||
+          volume < 0 ||
+          volume > 1
+        ) {
+          return badRequest('Music timing must be valid and volume must be between 0 and 1');
+        }
 
         const track: MusicTrack = {
           id: `music-${Date.now()}`,
@@ -414,6 +518,10 @@ export async function POST(request: Request) {
           suggestions: Array<{ id: string; type: string; time: number; reason: string; prompt?: string }>;
         };
 
+        if (!Array.isArray(sections) || !Array.isArray(suggestions)) {
+          return badRequest('Narrative sections and suggestions arrays are required');
+        }
+
         const updated = ProjectStore.setNarrativeAnalysis(
           projectId,
           sections.map(s => ({ ...s, type: s.type as 'intro' | 'setup' | 'conflict' | 'climax' | 'resolution' | 'outro' })),
@@ -432,6 +540,14 @@ export async function POST(request: Request) {
 
       case 'apply-suggestion': {
         const { suggestionId } = params as { suggestionId: string };
+        if (!isNonEmptyString(suggestionId)) {
+          return badRequest('Suggestion ID is required');
+        }
+
+        if (!project.enhancementSuggestions?.some((suggestion) => suggestion.id === suggestionId)) {
+          return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 });
+        }
+
         const updated = ProjectStore.applySuggestion(projectId, suggestionId);
         return NextResponse.json({
           success: true,
@@ -442,6 +558,15 @@ export async function POST(request: Request) {
 
       case 'queue-export': {
         const { aspectRatios = ['16:9'] } = params as { aspectRatios?: ('16:9' | '9:16' | '1:1' | '4:5')[] };
+
+        if (!Array.isArray(aspectRatios) || aspectRatios.length === 0) {
+          return badRequest('At least one aspect ratio is required');
+        }
+
+        const invalidRatio = aspectRatios.find((ratio) => !VALID_ASPECT_RATIOS.has(ratio));
+        if (invalidRatio) {
+          return badRequest(`Invalid aspect ratio: ${invalidRatio}`);
+        }
         
         let updated = project;
         for (const ratio of aspectRatios) {
@@ -461,15 +586,17 @@ export async function POST(request: Request) {
         }
 
         let updated = project;
+        let appliedCount = 0;
         for (const suggestion of project.enhancementSuggestions) {
           if (!suggestion.applied) {
             updated = ProjectStore.applySuggestion(projectId, suggestion.id) || updated;
+            appliedCount += 1;
           }
         }
 
         return NextResponse.json({
           success: true,
-          message: `Applied ${project.enhancementSuggestions.length} suggestions`,
+          message: `Applied ${appliedCount} suggestions`,
           project: updated,
         });
       }
