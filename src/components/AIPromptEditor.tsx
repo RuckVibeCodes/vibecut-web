@@ -12,6 +12,7 @@ interface Message {
 
 interface Props {
   onGenerateCode?: (code: string) => void;
+  draftPrompt?: string;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -22,7 +23,7 @@ const EXAMPLE_PROMPTS = [
   "Create a TikTok-style vertical video with trending caption style",
 ];
 
-export function AIPromptEditor({ onGenerateCode }: Props) {
+export function AIPromptEditor({ onGenerateCode, draftPrompt }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -35,6 +36,12 @@ export function AIPromptEditor({ onGenerateCode }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (draftPrompt) {
+      setInput(draftPrompt);
+    }
+  }, [draftPrompt]);
 
   useEffect(() => {
     // Check if API keys are configured

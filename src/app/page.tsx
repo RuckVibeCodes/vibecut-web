@@ -6,10 +6,44 @@ import { Player } from '@remotion/player';
 import { DemoVideo } from '@/components/DemoVideo';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
 
+type VideoTemplate = {
+  title: string;
+  description: string;
+  tags: string[];
+  deliverables: string[];
+  prompt: string;
+};
+
+const VIDEO_TEMPLATES: VideoTemplate[] = [
+  {
+    title: 'Talking Head',
+    description: 'Perfect for YouTube videos, tutorials, and vlogs',
+    tags: ['Captions', 'B-Roll', 'Intro/Outro'],
+    deliverables: ['Hook title card', 'Word-level captions', 'Three b-roll moments', 'Branded outro CTA'],
+    prompt: 'Create a polished talking-head YouTube video with a 3-second hook title card, animated word-by-word captions, three relevant b-roll callouts, subtle zooms on key points, and a branded outro CTA.',
+  },
+  {
+    title: 'Product Demo',
+    description: 'Showcase your app or product with screen recordings',
+    tags: ['Screen Capture', 'Voiceover', 'Zoom Effects'],
+    deliverables: ['Problem/solution opener', 'Screen zoom beats', 'Feature callouts', 'Conversion CTA'],
+    prompt: 'Build a product demo video that opens with the pain point, alternates screen-recording sections with zoomed feature callouts, adds concise voiceover captions, and ends with a clear signup CTA.',
+  },
+  {
+    title: 'Short Form',
+    description: 'Optimized for TikTok, Reels, and Shorts',
+    tags: ['9:16 Ratio', 'Fast Cuts', 'Trending Captions'],
+    deliverables: ['9:16 composition', 'Fast jump cuts', 'High-contrast captions', 'Loop-friendly ending'],
+    prompt: 'Create a 9:16 short-form edit with fast jump cuts, high-contrast trending captions, punchy b-roll overlays, and a loop-friendly ending that returns to the opening hook.',
+  },
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'create' | 'templates'>('home');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<VideoTemplate>(VIDEO_TEMPLATES[0]);
+  const [draftPrompt, setDraftPrompt] = useState('');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
@@ -207,7 +241,7 @@ export default function Home() {
               <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
                 <span className="text-lg sm:text-xl">✨</span> AI Video Editor
               </h3>
-              <AIPromptEditor onGenerateCode={setGeneratedCode} />
+              <AIPromptEditor onGenerateCode={setGeneratedCode} draftPrompt={draftPrompt} />
             </div>
 
             {/* Upload + Preview */}
@@ -297,22 +331,47 @@ export default function Home() {
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6 sm:mb-8">Video Templates</h2>
           
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <TemplateCard
-              title="Talking Head"
-              description="Perfect for YouTube videos, tutorials, and vlogs"
-              tags={['Captions', 'B-Roll', 'Intro/Outro']}
-            />
-            <TemplateCard
-              title="Product Demo"
-              description="Showcase your app or product with screen recordings"
-              tags={['Screen Capture', 'Voiceover', 'Zoom Effects']}
-            />
-            <TemplateCard
-              title="Short Form"
-              description="Optimized for TikTok, Reels, and Shorts"
-              tags={['9:16 Ratio', 'Fast Cuts', 'Trending Captions']}
-            />
+            {VIDEO_TEMPLATES.map((template) => (
+              <TemplateCard
+                key={template.title}
+                template={template}
+                selected={selectedTemplate.title === template.title}
+                onSelect={() => setSelectedTemplate(template)}
+              />
+            ))}
           </div>
+
+          <section className="mt-6 sm:mt-8 bg-white/10 backdrop-blur rounded-2xl p-5 sm:p-6 border border-white/10">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-white/40 mb-2">Template blueprint</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{selectedTemplate.title}</h3>
+                <p className="text-white/60 text-sm sm:text-base max-w-2xl">{selectedTemplate.description}</p>
+                <div className="grid sm:grid-cols-2 gap-2 mt-4">
+                  {selectedTemplate.deliverables.map((item) => (
+                    <div key={item} className="flex items-center gap-2 text-sm text-white/70">
+                      <span className="w-5 h-5 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center text-xs">✓</span>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setDraftPrompt(selectedTemplate.prompt);
+                  setActiveTab('create');
+                  setGeneratedCode(null);
+                }}
+                className="w-full lg:w-auto px-6 py-3 bg-white text-indigo-900 font-semibold rounded-xl hover:bg-white/90 active:scale-[0.98] transition"
+              >
+                Use this template
+              </button>
+            </div>
+            <div className="mt-5 bg-black/30 rounded-xl p-4 border border-white/10">
+              <p className="text-white/40 text-xs mb-2">AI prompt seed</p>
+              <p className="text-white/75 text-sm">{selectedTemplate.prompt}</p>
+            </div>
+          </section>
         </main>
       )}
 
@@ -348,21 +407,26 @@ function WorkflowStep({ number, title, description }: { number: number; title: s
   );
 }
 
-function TemplateCard({ title, description, tags }: { title: string; description: string; tags: string[] }) {
+function TemplateCard({ template, selected, onSelect }: { template: VideoTemplate; selected: boolean; onSelect: () => void }) {
   return (
-    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 hover:bg-white/15 active:scale-[0.98] transition cursor-pointer">
+    <button
+      onClick={onSelect}
+      className={`bg-white/10 backdrop-blur rounded-2xl p-4 sm:p-6 hover:bg-white/15 active:scale-[0.98] transition cursor-pointer text-left border ${
+        selected ? 'border-white/40 ring-2 ring-pink-400/40' : 'border-white/10'
+      }`}
+    >
       <div className="aspect-video bg-black/30 rounded-xl mb-3 sm:mb-4 flex items-center justify-center">
         <span className="text-3xl sm:text-4xl">🎬</span>
       </div>
-      <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2">{title}</h3>
-      <p className="text-white/60 text-xs sm:text-sm mb-3 sm:mb-4">{description}</p>
+      <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2">{template.title}</h3>
+      <p className="text-white/60 text-xs sm:text-sm mb-3 sm:mb-4">{template.description}</p>
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
-        {tags.map((tag) => (
+        {template.tags.map((tag) => (
           <span key={tag} className="px-2 py-1 bg-white/10 rounded text-[10px] sm:text-xs text-white/70">
             {tag}
           </span>
         ))}
       </div>
-    </div>
+    </button>
   );
 }
