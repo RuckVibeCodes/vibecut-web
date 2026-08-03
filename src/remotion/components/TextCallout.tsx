@@ -6,6 +6,7 @@ import {
   spring,
   Sequence,
   Easing,
+  random,
 } from 'remotion';
 
 export interface TextCalloutConfig {
@@ -167,8 +168,10 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderGlitch = () => {
-    const glitchOffset = Math.random() > 0.9 ? (Math.random() - 0.5) * 10 : 0;
-    const rgbShift = Math.random() > 0.85;
+    const glitchTrigger = random(`${text}-glitch-trigger-${frame}`);
+    const glitchAmount = random(`${text}-glitch-offset-${frame}`);
+    const glitchOffset = glitchTrigger > 0.9 ? (glitchAmount - 0.5) * 10 : 0;
+    const rgbShift = random(`${text}-glitch-rgb-${frame}`) > 0.85;
 
     return (
       <div
@@ -321,7 +324,7 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderFire = () => {
-    const flicker = 0.9 + Math.random() * 0.2;
+    const flicker = 0.9 + random(`${text}-fire-flicker-${frame}`) * 0.2;
 
     return (
       <div
