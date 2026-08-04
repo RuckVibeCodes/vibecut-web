@@ -6,13 +6,15 @@ import { BRollGenerator } from '@/components/BRollGenerator';
 import { VoiceCloning } from '@/components/VoiceCloning';
 import { HighlightDetector } from '@/components/HighlightDetector';
 import { RenderQueue } from '@/components/RenderQueue';
+import { CreatorBriefBuilder } from '@/components/CreatorBriefBuilder';
 
-type ToolTab = 'broll' | 'voice' | 'highlights' | 'render';
+type ToolTab = 'brief' | 'broll' | 'voice' | 'highlights' | 'render';
 
 export default function ToolsPage() {
-  const [activeTab, setActiveTab] = useState<ToolTab>('broll');
+  const [activeTab, setActiveTab] = useState<ToolTab>('brief');
 
   const tools = [
+    { id: 'brief' as const, name: 'Brief Builder', icon: '🧭', description: 'Plan hooks, format, CTA' },
     { id: 'broll' as const, name: 'AI B-Roll', icon: '🎬', description: 'Generate video clips from text' },
     { id: 'voice' as const, name: 'Voice & TTS', icon: '🎤', description: 'Clone voices, generate speech' },
     { id: 'highlights' as const, name: 'Highlights', icon: '✨', description: 'Find viral moments' },
@@ -48,7 +50,7 @@ export default function ToolsPage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">AI Tools</h1>
-          <p className="text-white/60">Powerful AI-powered tools to supercharge your video production</p>
+          <p className="text-white/60">Plan the brief, generate assets, find highlights, and queue renders from one production hub</p>
         </div>
 
         <div className="flex gap-8">
@@ -77,6 +79,7 @@ export default function ToolsPage() {
 
           {/* Content */}
           <div className="flex-1 bg-white/5 rounded-2xl p-6">
+            {activeTab === 'brief' && <CreatorBriefBuilder />}
             {activeTab === 'broll' && <BRollGenerator />}
             {activeTab === 'voice' && <VoiceCloning />}
             {activeTab === 'highlights' && (
@@ -92,6 +95,12 @@ export default function ToolsPage() {
         {/* Feature cards */}
         <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
+            {
+              icon: '🧭',
+              title: 'Brief Builder',
+              description: 'Convert an idea into a hook, format, proof point, and CTA before editing',
+              features: ['Platform fit', 'Hook options', 'Copyable prompt'],
+            },
             {
               icon: '🎬',
               title: 'AI B-Roll',
