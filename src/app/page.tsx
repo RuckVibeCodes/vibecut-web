@@ -6,6 +6,27 @@ import { Player } from '@remotion/player';
 import { DemoVideo } from '@/components/DemoVideo';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
 
+const exportReadinessItems = [
+  {
+    platform: 'YouTube',
+    format: '16:9 long-form',
+    runtime: '8-12 min',
+    checklist: ['Hook in first 15s', 'Pattern interrupt every 45s', 'End screen CTA'],
+  },
+  {
+    platform: 'Shorts/Reels',
+    format: '9:16 vertical',
+    runtime: '20-45s',
+    checklist: ['Burned-in captions', 'Safe-zone framing', 'Loopable ending'],
+  },
+  {
+    platform: 'LinkedIn',
+    format: '1:1 or 4:5',
+    runtime: '60-90s',
+    checklist: ['Problem-first opener', 'Readable lower thirds', 'Subtle music bed'],
+  },
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'create' | 'templates'>('home');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
@@ -182,6 +203,24 @@ export default function Home() {
             />
           </div>
 
+          {/* Export Readiness */}
+          <div className="mt-12 sm:mt-20 rounded-3xl border border-white/10 bg-white/10 p-5 sm:p-8 backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 sm:mb-8">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-pink-200/80">Before you render</p>
+                <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-white">Export readiness matrix</h2>
+              </div>
+              <p className="max-w-xl text-sm sm:text-base text-white/65">
+                Pick a distribution target before AI edits the cut. VibeCut now gives creators a quick spec sheet for the aspect ratio, length, and final QA checks each channel expects.
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {exportReadinessItems.map((item) => (
+                <ExportReadinessCard key={item.platform} {...item} />
+              ))}
+            </div>
+          </div>
+
           {/* Workflow */}
           <div className="mt-12 sm:mt-20">
             <h2 className="text-2xl sm:text-3xl font-bold text-white text-center mb-8 sm:mb-12">How It Works</h2>
@@ -332,6 +371,40 @@ function FeatureCard({ emoji, title, description }: { emoji: string; title: stri
       <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">{emoji}</div>
       <h3 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">{title}</h3>
       <p className="text-white/70 text-sm sm:text-base">{description}</p>
+    </div>
+  );
+}
+
+function ExportReadinessCard({
+  platform,
+  format,
+  runtime,
+  checklist,
+}: {
+  platform: string;
+  format: string;
+  runtime: string;
+  checklist: string[];
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-white">{platform}</h3>
+          <p className="text-sm text-white/55">{format}</p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/75">
+          {runtime}
+        </span>
+      </div>
+      <ul className="mt-4 space-y-2">
+        {checklist.map((item) => (
+          <li key={item} className="flex gap-2 text-sm text-white/70">
+            <span className="mt-0.5 text-pink-300">✓</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
