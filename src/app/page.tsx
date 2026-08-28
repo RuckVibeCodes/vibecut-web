@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Player } from '@remotion/player';
 import { DemoVideo } from '@/components/DemoVideo';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
+import { BatchBriefPlanner } from '@/components/BatchBriefPlanner';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'create' | 'templates'>('home');
@@ -313,6 +314,8 @@ export default function Home() {
               tags={['9:16 Ratio', 'Fast Cuts', 'Trending Captions']}
             />
           </div>
+
+          <BatchBriefPlanner />
         </main>
       )}
 
