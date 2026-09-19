@@ -6,8 +6,9 @@ import { BRollGenerator } from '@/components/BRollGenerator';
 import { VoiceCloning } from '@/components/VoiceCloning';
 import { HighlightDetector } from '@/components/HighlightDetector';
 import { RenderQueue } from '@/components/RenderQueue';
+import { ExportCostPlanner } from '@/components/ExportCostPlanner';
 
-type ToolTab = 'broll' | 'voice' | 'highlights' | 'render';
+type ToolTab = 'broll' | 'voice' | 'highlights' | 'render' | 'costs';
 
 export default function ToolsPage() {
   const [activeTab, setActiveTab] = useState<ToolTab>('broll');
@@ -17,6 +18,7 @@ export default function ToolsPage() {
     { id: 'voice' as const, name: 'Voice & TTS', icon: '🎤', description: 'Clone voices, generate speech' },
     { id: 'highlights' as const, name: 'Highlights', icon: '✨', description: 'Find viral moments' },
     { id: 'render' as const, name: 'Render Queue', icon: '📦', description: 'Batch render videos' },
+    { id: 'costs' as const, name: 'Cost Planner', icon: '🧮', description: 'Estimate batch spend' },
   ];
 
   return (
@@ -86,6 +88,7 @@ export default function ToolsPage() {
               />
             )}
             {activeTab === 'render' && <RenderQueue />}
+            {activeTab === 'costs' && <ExportCostPlanner />}
           </div>
         </div>
 
@@ -115,6 +118,12 @@ export default function ToolsPage() {
               title: 'Batch Render',
               description: 'Queue multiple videos and render them all at once',
               features: ['Multiple formats', 'Quality presets', 'Progress tracking'],
+            },
+            {
+              icon: '🧮',
+              title: 'Cost Planner',
+              description: 'Forecast platform versions, render minutes, and generation spend',
+              features: ['Batch estimates', 'Quality toggles', 'Storage forecast'],
             },
           ].map((feature, i) => (
             <div key={i} className="bg-white/5 rounded-xl p-5">
