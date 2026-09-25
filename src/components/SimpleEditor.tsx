@@ -26,6 +26,46 @@ interface Props {
   onEditChange?: (edit: Partial<ClipEdit>) => void;
 }
 
+interface SliderProps {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  showValue?: boolean;
+}
+
+function Slider({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  unit = '',
+  showValue = true,
+}: SliderProps) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between text-sm">
+        <span className="text-white/70">{label}</span>
+        {showValue && <span className="text-white">{value}{unit}</span>}
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+      />
+    </div>
+  );
+}
+
 export function SimpleEditor({ duration, onEditChange }: Props) {
   const [edit, setEdit] = useState<ClipEdit>({
     id: 'main',
@@ -73,42 +113,6 @@ export function SimpleEditor({ duration, onEditChange }: Props) {
     const ms = Math.floor((seconds % 1) * 100);
     return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
-
-  const Slider = ({ 
-    label, 
-    value, 
-    onChange, 
-    min = 0, 
-    max = 100, 
-    step = 1,
-    unit = '',
-    showValue = true
-  }: {
-    label: string;
-    value: number;
-    onChange: (v: number) => void;
-    min?: number;
-    max?: number;
-    step?: number;
-    unit?: string;
-    showValue?: boolean;
-  }) => (
-    <div className="space-y-2">
-      <div className="flex justify-between text-sm">
-        <span className="text-white/70">{label}</span>
-        {showValue && <span className="text-white">{value}{unit}</span>}
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-      />
-    </div>
-  );
 
   return (
     <div className="space-y-4">
