@@ -13,23 +13,26 @@ interface LocalAsset extends Asset {
   dataUrl: string;
 }
 
+function loadStoredAssets(): LocalAsset[] {
+  if (typeof window === 'undefined') return [];
+
+  const stored = window.localStorage.getItem('vibecut-assets');
+  if (!stored) return [];
+
+  try {
+    return JSON.parse(stored);
+  } catch (e) {
+    console.error('Failed to load assets:', e);
+    return [];
+  }
+}
+
 export function AssetManager({ onSelectAsset }: Props) {
-  const [assets, setAssets] = useState<LocalAsset[]>([]);
+  const [assets, setAssets] = useState<LocalAsset[]>(loadStoredAssets);
   const [filter, setFilter] = useState<'all' | 'video' | 'audio' | 'image' | 'gif'>('all');
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load assets from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('vibecut-assets');
-    if (stored) {
-      try {
-        setAssets(JSON.parse(stored));
-      } catch (e) {
-        console.error('Failed to load assets:', e);
-      }
-    }
-  }, []);
 
   // Save assets to localStorage whenever they change
   useEffect(() => {

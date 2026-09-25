@@ -27,6 +27,11 @@ export interface TextCalloutProps {
   callouts: TextCalloutConfig[];
 }
 
+const pseudoRandom = (seed: number) => {
+  const value = Math.sin(seed * 12.9898) * 43758.5453;
+  return value - Math.floor(value);
+};
+
 export const TextCallout: React.FC<TextCalloutProps> = ({ callouts }) => {
   const { fps } = useVideoConfig();
 
@@ -167,8 +172,9 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderGlitch = () => {
-    const glitchOffset = Math.random() > 0.9 ? (Math.random() - 0.5) * 10 : 0;
-    const rgbShift = Math.random() > 0.85;
+    const glitchTrigger = pseudoRandom(frame + text.length * 17);
+    const glitchOffset = glitchTrigger > 0.9 ? (pseudoRandom(frame * 3 + text.length) - 0.5) * 10 : 0;
+    const rgbShift = pseudoRandom(frame * 5 + text.length * 11) > 0.85;
 
     return (
       <div
@@ -321,7 +327,7 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderFire = () => {
-    const flicker = 0.9 + Math.random() * 0.2;
+    const flicker = 0.9 + pseudoRandom(frame + text.length * 23) * 0.2;
 
     return (
       <div
