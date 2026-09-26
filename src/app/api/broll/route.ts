@@ -163,9 +163,7 @@ export async function GET(request: Request) {
   }
 
   if (provider === 'wavespeed') {
-    // WaveSpeed status check
-    const client = new WaveSpeedClient({ apiKey });
-    // Status is handled internally by the client during generation
+    // Status is handled internally by WaveSpeed during generation
     // This endpoint is primarily for Replicate's async model
     return NextResponse.json({ 
       error: 'WaveSpeed handles polling internally. Check generation result.' 

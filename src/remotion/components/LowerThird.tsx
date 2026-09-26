@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Remotion render primitives support plain img tags. */
 import {
   AbsoluteFill,
   interpolate,
@@ -75,7 +76,6 @@ const LowerThirdRenderer: React.FC<LowerThirdRendererProps> = ({
   } = config;
 
   // Animation timing
-  const animInDuration = 20;
   const animOutDuration = 15;
   const animOutStart = durationFrames - animOutDuration;
 

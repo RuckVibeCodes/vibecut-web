@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- User-provided local data URLs are preview thumbnails, not optimized remote assets. */
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';

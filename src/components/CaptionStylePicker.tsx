@@ -68,7 +68,7 @@ function CaptionPreview({ style }: { style: CaptionStyle }) {
     }
   };
 
-  const getAnimationClass = (index: number) => {
+  const getAnimationClass = () => {
     if (style.config.animation === 'bounce') {
       return 'animate-bounce';
     }
@@ -100,7 +100,7 @@ function CaptionPreview({ style }: { style: CaptionStyle }) {
             return (
               <span
                 key={i}
-                className={getAnimationClass(i)}
+                className={getAnimationClass()}
                 style={{
                   color: isHighlighted ? style.config.highlightColor : style.config.color,
                   WebkitTextStroke: style.config.outline ? `1px ${style.config.outlineColor}` : undefined,

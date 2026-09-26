@@ -70,7 +70,7 @@ const BRollClipRenderer: React.FC<BRollClipRendererProps> = ({
   durationFrames,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
   // Calculate transition animations
   const getTransitionStyle = () => {

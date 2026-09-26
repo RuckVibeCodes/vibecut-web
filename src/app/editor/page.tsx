@@ -143,12 +143,11 @@ export default function EditorPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
-  const [selectedClip, setSelectedClip] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [undoStack, setUndoStack] = useState<unknown[]>([]);
-  const [redoStack, setRedoStack] = useState<unknown[]>([]);
+  const [undoStack] = useState<unknown[]>([]);
+  const [redoStack] = useState<unknown[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const playerRef = useRef<PlayerRef>(null);

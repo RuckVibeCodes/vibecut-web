@@ -4,12 +4,11 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring } fr
 
 export const DemoVideo: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
   
   // Animation phases
   const phase1End = fps * 3;   // Intro: 0-3s
   const phase2End = fps * 7;   // Features: 3-7s
-  const phase3End = fps * 10;  // CTA: 7-10s
   
   const introOpacity = interpolate(frame, [0, 30], [0, 1], { extrapolateRight: 'clamp' });
   const introScale = spring({ frame, fps, from: 0.8, to: 1, durationInFrames: 30 });
@@ -84,9 +83,9 @@ export const DemoVideo: React.FC = () => {
             What You Get
           </h2>
           <div style={{ display: 'flex', gap: 40 }}>
-            <FeatureBox emoji="🎙️" text="Auto Captions" delay={0} frame={frame - phase1End} fps={fps} />
-            <FeatureBox emoji="🎨" text="AI B-Roll" delay={15} frame={frame - phase1End} fps={fps} />
-            <FeatureBox emoji="⚡" text="Batch Render" delay={30} frame={frame - phase1End} fps={fps} />
+            <FeatureBox emoji="🎙️" text="Auto Captions" delay={0} frame={frame - phase1End} />
+            <FeatureBox emoji="🎨" text="AI B-Roll" delay={15} frame={frame - phase1End} />
+            <FeatureBox emoji="⚡" text="Batch Render" delay={30} frame={frame - phase1End} />
           </div>
         </AbsoluteFill>
       )}
@@ -130,7 +129,7 @@ export const DemoVideo: React.FC = () => {
   );
 };
 
-function FeatureBox({ emoji, text, delay, frame, fps }: { emoji: string; text: string; delay: number; frame: number; fps: number }) {
+function FeatureBox({ emoji, text, delay, frame }: { emoji: string; text: string; delay: number; frame: number }) {
   const opacity = interpolate(frame, [delay, delay + 20], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const y = interpolate(frame, [delay, delay + 20], [30, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   

@@ -13,9 +13,6 @@ import {
   CinematicStyle,
   NarrativeConfig,
   BRollSuggestion,
-  MusicSuggestion,
-  TextOverlaySuggestion,
-  CameraMovementSuggestion,
 } from './types/ai';
 import { Transcript, TranscriptWord } from './types';
 
