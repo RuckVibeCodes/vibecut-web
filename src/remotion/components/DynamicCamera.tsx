@@ -29,7 +29,6 @@ export const DynamicCamera: React.FC<DynamicCameraProps> = ({
   smoothness = 0.5,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
 
   // Sort keyframes by frame
   const sortedKeyframes = [...keyframes].sort((a, b) => a.frame - b.frame);

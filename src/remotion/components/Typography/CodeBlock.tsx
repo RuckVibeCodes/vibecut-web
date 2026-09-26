@@ -163,7 +163,6 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   code,
   startFrame = 0,
   speed = 30,
-  language = 'javascript',
   fontSize = 24,
   backgroundColor = '#1E1E1E',
   showLineNumbers = true,

@@ -5,7 +5,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
   spring,
-  Easing,
 } from 'remotion';
 
 export interface ImpactTitleProps {

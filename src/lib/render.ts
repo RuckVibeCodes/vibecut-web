@@ -289,7 +289,7 @@ export async function renderAllExports(
   return jobs;
 }
 
-export default {
+const renderApi = {
   createRenderJob,
   updateRenderJob,
   getRenderJob,
@@ -300,3 +300,5 @@ export default {
   projectToInputProps,
   RENDER_CONFIG,
 };
+
+export default renderApi;

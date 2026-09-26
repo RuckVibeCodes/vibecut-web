@@ -10,7 +10,7 @@ import {
   Sequence,
 } from 'remotion';
 import { DynamicCamera, CameraKeyframe } from './components/DynamicCamera';
-import { CinematicCaptions, CinematicCaptionsProps } from './components/CinematicCaptions';
+import { CinematicCaptions } from './components/CinematicCaptions';
 import { BRollOverlay, BRollClip } from './components/BRollOverlay';
 import { ColorGrade, ColorGradePreset, ColorGradeConfig } from './components/ColorGrade';
 import { LowerThird, LowerThirdConfig } from './components/LowerThird';

@@ -69,17 +69,6 @@ export const ChapterCard: React.FC<ChapterCardProps> = ({
   const relativeFrame = frame - startFrame;
   if (relativeFrame < 0) return null;
   
-  // Animation progress
-  const progress = spring({
-    frame: relativeFrame,
-    fps,
-    config: {
-      damping: 15,
-      stiffness: 100,
-      mass: 0.8,
-    },
-  });
-  
   // Staggered animations
   const numberProgress = spring({
     frame: relativeFrame,

@@ -62,7 +62,7 @@ interface CalloutRendererProps {
 
 const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrames }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
   const {
     text,

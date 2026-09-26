@@ -78,7 +78,7 @@ export const CinematicCaptions: React.FC<CinematicCaptionsProps> = ({
   };
 
   // Animation for each word
-  const getWordAnimation = (word: TranscriptWord & { isActive: boolean }, index: number) => {
+  const getWordAnimation = (word: TranscriptWord & { isActive: boolean }) => {
     const wordStartFrame = word.start * fps;
     const wordEndFrame = word.end * fps;
     const isImpact = impactWords.some((iw) => word.word.toLowerCase().includes(iw.toLowerCase()));
@@ -203,7 +203,7 @@ export const CinematicCaptions: React.FC<CinematicCaptionsProps> = ({
             maxWidth: width * 0.9,
           }}
         >
-          {displayWords.map((word, i) => (
+          {displayWords.map((word) => (
             <span
               key={`${word.word}-${word.start}`}
               style={{
@@ -214,7 +214,7 @@ export const CinematicCaptions: React.FC<CinematicCaptionsProps> = ({
                 WebkitTextStroke: style.outline ? `2px ${style.outlineColor ?? '#000'}` : undefined,
                 textShadow: style.shadow ? '3px 3px 6px rgba(0,0,0,0.8)' : undefined,
                 display: 'inline-block',
-                ...getWordAnimation(word, i),
+                ...getWordAnimation(word),
               }}
             >
               {word.punctuated_word ?? word.word}
