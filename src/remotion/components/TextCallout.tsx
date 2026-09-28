@@ -167,8 +167,10 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderGlitch = () => {
-    const glitchOffset = Math.random() > 0.9 ? (Math.random() - 0.5) * 10 : 0;
-    const rgbShift = Math.random() > 0.85;
+    const glitchPulse = Math.sin(frame * 12.9898) * 43758.5453;
+    const glitchNoise = glitchPulse - Math.floor(glitchPulse);
+    const glitchOffset = glitchNoise > 0.9 ? (glitchNoise - 0.5) * 10 : 0;
+    const rgbShift = glitchNoise > 0.85;
 
     return (
       <div
@@ -321,7 +323,8 @@ const CalloutRenderer: React.FC<CalloutRendererProps> = ({ config, durationFrame
   };
 
   const renderFire = () => {
-    const flicker = 0.9 + Math.random() * 0.2;
+    const flickerNoise = Math.sin(frame * 9.173 + text.length) * 0.5 + 0.5;
+    const flicker = 0.9 + flickerNoise * 0.2;
 
     return (
       <div
